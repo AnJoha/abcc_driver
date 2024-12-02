@@ -1,0 +1,3 @@
+[submodule "inc/abcc_abp"]
+	path = inc/abcc_abp
+	url = https://github.com/AnJoha/abcc_abp.git
