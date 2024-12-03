@@ -1,29 +1,29 @@
 # abcc_driver
 This is a first test of having the Anybus CompactCom Driver as a GitHub repository.
 
-To see examples of how it can be used, go to [starter_kit_example](https://github.com/AnJoha/starter_kit_example).
+To see examples of how it can be used in a project, go to [starter_kit_example](https://github.com/AnJoha/starter_kit_example).
 
 ## Cloning
 
 ### Use the flag
 
-This repository contains a submodule ([abcc_abp](https://github.com/AnJoha/abcc_abp)) that must be initialized. Therefore, the flag `--recurse-submodules` shall be passed when cloning.
+This repository contains a submodule ([abcc_abp](https://github.com/AnJoha/abcc_abp)) that must be initialized. Therefore, pass the flag `--recurse-submodules` when cloning.
 
-*It's suggested to clone the repository to your projects `lib/` folder.*
+*It's suggested to clone the repository into your projects `lib/` folder.*
 ```
 git clone --recurse-submodules https://github.com/AnJoha/abcc_driver.git lib/abcc_driver
 ```
 
 #### (In case you missed it...)
 
-If you did not pass the `--recurse-submodules` flag when cloning, the following command can be run:
+If you did not pass the flag `--recurse-submodules` when cloning, the following command can be run:
 ```
 git submodule update --init --recursive
 ```
 
 ## Building
 
-### Configuration
+### Configure
 
 The Anybus CompactCom Driver shall **always** be configured by a file called `abcc_driver_configuration.h`, custom to your project. The file shall contain macro definitions to enable, disable, and set values of different features and funtionalities.
 

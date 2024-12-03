@@ -75,7 +75,6 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_parallel.h
     ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_serial.h
     ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_spi.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_types.h
     ${ABCC_DRIVER_DIR}/inc/application_abcc_handler.h
     ${ABCC_DRIVER_DIR}/inc/application_data_instance_config.h
     ${ABCC_DRIVER_DIR}/inc/application_select_firmware.h
