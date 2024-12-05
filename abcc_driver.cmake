@@ -71,10 +71,10 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/inc/abcc_identification.h
     ${ABCC_DRIVER_DIR}/inc/abcc_object_config.h
     ${ABCC_DRIVER_DIR}/inc/abcc_port.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_parallel.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_serial.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_system_adaptation_spi.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_hardware_abstraction.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_hardware_abstraction_parallel.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_hardware_abstraction_serial.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_hardware_abstraction_spi.h
     ${ABCC_DRIVER_DIR}/inc/application_abcc_handler.h
     ${ABCC_DRIVER_DIR}/inc/application_data_instance_config.h
     ${ABCC_DRIVER_DIR}/inc/application_select_firmware.h

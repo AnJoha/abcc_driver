@@ -24,7 +24,7 @@
 #include "abcc.h"
 #include "abcc_port.h"
 #include "application_abcc_handler.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "sync_object.h"
 
 #if SYNC_OBJ_ENABLE

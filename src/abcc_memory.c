@@ -19,7 +19,7 @@
 #include "abcc_types.h"
 #include "abcc.h"
 #include "abcc_memory.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "abcc_port.h"
 #include "abcc_debug_error.h"
 

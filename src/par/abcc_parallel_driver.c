@@ -21,12 +21,12 @@
 
 #include "abcc_types.h"
 #include "../abcc_debug_error.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "../abcc_timer.h"
 #include "../abcc_driver_interface.h"
 #include "../abcc_memory.h"
 #include "abp.h"
-#include "abcc_system_adaptation_parallel.h"
+#include "abcc_hardware_abstraction_parallel.h"
 #include "../abcc_handler.h"
 #include "abcc_port.h"
 

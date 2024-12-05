@@ -22,13 +22,13 @@
 
 #include "abcc_types.h"
 #include "../abcc_debug_error.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "../abcc_timer.h"
 #include "../abcc_driver_interface.h"
 #include "../abcc_memory.h"
 #include "../abcc_handler.h"
 #include "abcc_crc32.h"
-#include "abcc_system_adaptation_spi.h"
+#include "abcc_hardware_abstraction_spi.h"
 
 #if ( ABCC_CFG_MAX_MSG_SIZE < 16 )
 #error "ABCC_CFG_MAX_MSG_SIZE must be at least a 16 bytes"

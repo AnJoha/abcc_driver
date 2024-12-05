@@ -22,7 +22,7 @@
 #include "abcc_config.h"
 #include "abcc_types.h"
 #include "abp.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "abcc.h"
 #include "abcc_port.h"
 #include "abcc_handler.h"

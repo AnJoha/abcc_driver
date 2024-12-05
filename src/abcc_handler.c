@@ -24,7 +24,7 @@
 #include "abcc_command_sequencer.h"
 #include "abcc_command_sequencer_interface.h"
 #include "abcc_memory.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "abcc_debug_error.h"
 #include "abcc_handler.h"
 #include "abcc_timer.h"

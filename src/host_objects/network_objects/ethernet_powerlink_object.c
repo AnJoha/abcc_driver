@@ -17,7 +17,7 @@
 
 #include "abcc_types.h"
 #include "abcc.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "abcc_object_config.h"
 #include "ethernet_powerlink_object.h"
 #include "abp.h"
