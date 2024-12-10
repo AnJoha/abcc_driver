@@ -169,7 +169,7 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
     }
 
 
-#if 0
+
    switch( ABCC_GetMsgDestObj( psReceivedMsg ) )
    {
 #if MQTT_OBJ_ENABLE
@@ -300,9 +300,4 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
       ABCC_SendRespMsg( psReceivedMsg );
       break;
    }
-#endif
-
-   ABP_SetMsgErrorResponse( psReceivedMsg, 1, ABP_ERR_UNSUP_OBJ );
-   ABCC_SendRespMsg( psReceivedMsg );
-
 }
