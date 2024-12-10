@@ -1,11 +1,11 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Starter Kit version 390fce4 (2024-10-25)                              **
+** ABCC Starter Kit version 003e7c1 (2024-11-29)                              **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
-**    ABCC Driver    edc67ee (2024-10-25)                                     **
+**    ABCC Driver    0401fde (2024-11-13)                                     **
 **                                                                            */
 /*******************************************************************************
 ** Copyright 2013-present HMS Industrial Networks AB.
@@ -23,22 +23,6 @@
 #define APPL_ABCC_HANDLER_H
 #include "abcc_types.h"
 #include "string.h"
-
-/*------------------------------------------------------------------------------
-** Status reported by the ABCC handler controlling the ABCC module
-**------------------------------------------------------------------------------
-*/
-typedef enum APPL_AbccHandlerStatus
-{
-   APPL_MODULE_NO_ERROR,         /* Module OK */
-   APPL_MODULE_NOT_DETECTED,     /* No module plugged */
-   APPL_MODULE_NOT_SUPPORTED,    /* Unsupported module detected */
-   APPL_MODULE_NOT_ANSWERING,    /* Possible reasons: Wrong API selected, defect module */
-   APPL_MODULE_RESET,            /* Reset requested from ABCC */
-   APPL_MODULE_SHUTDOWN,         /* Shutdown requested */
-   APPL_MODULE_UNEXPECTED_ERROR  /* Unexpected error occurred */
-}
-APPL_AbccHandlerStatusType;
 
 /*------------------------------------------------------------------------------
 **  Error codes for example application:
@@ -101,22 +85,10 @@ APPL_CommSettingType;
 **    None
 **
 ** Returns:
-**    State of the ABCC handler
+**    ABCC driver error code
 **------------------------------------------------------------------------------
 */
-EXTFUNC APPL_AbccHandlerStatusType APPL_HandleAbcc( void );
-
-/*------------------------------------------------------------------------------
-** This function will force the ABCC handler to restart the ABCC module
-**------------------------------------------------------------------------------
-** Arguments:
-**    None
-**
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-EXTFUNC void APPL_RestartAbcc( void );
+EXTFUNC ABCC_ErrorCodeType APPL_HandleAbcc( void );
 
 /*------------------------------------------------------------------------------
 ** This function will force the ABCC handler to shutdown the ABCC module

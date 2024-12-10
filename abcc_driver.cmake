@@ -68,7 +68,6 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/src/serial/abcc_driver_serial_interface.h
     ${ABCC_DRIVER_DIR}/inc/abcc.h
     ${ABCC_DRIVER_DIR}/inc/abcc_error_codes.h
-    ${ABCC_DRIVER_DIR}/inc/abcc_host_attributes_lookup.h
     ${ABCC_DRIVER_DIR}/inc/abcc_log.h
     ${ABCC_DRIVER_DIR}/inc/abcc_application_data_interface.h
     ${ABCC_DRIVER_DIR}/inc/abcc_command_sequencer_interface.h
@@ -83,6 +82,7 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/inc/application_abcc_handler.h
     ${ABCC_DRIVER_DIR}/inc/application_data_instance_config.h
     ${ABCC_DRIVER_DIR}/inc/application_select_firmware.h
+	${ABCC_DRIVER_DIR}/inc/host_objects/abcc_host_attributes_lookup.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/anybus_file_system_interface_object.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/application_data_object.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/application_object.h

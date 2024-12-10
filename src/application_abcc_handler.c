@@ -1,11 +1,11 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Starter Kit version 390fce4 (2024-10-25)                              **
+** ABCC Starter Kit version 003e7c1 (2024-11-29)                              **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
-**    ABCC Driver    edc67ee (2024-10-25)                                     **
+**    ABCC Driver    0401fde (2024-11-13)                                     **
 **                                                                            */
 /*******************************************************************************
 ** Copyright 2019-present HMS Industrial Networks AB.
@@ -130,9 +130,7 @@ typedef enum appl_AbccHandlerState
    APPL_WAITCOM,
    APPL_WAIT_FW_UPDATE,
    APPL_RUN,
-   APPL_SHUTDOWN,
-   APPL_ABCCRESET,
-   APPL_DEVRESET,
+   APPL_RESET,
    APPL_HALT
 }
 appl_AbccHandlerStateType;
@@ -206,13 +204,6 @@ static BOOL appl_fNwSupportsNodeId;
 static BOOL appl_fNwSupportsBaudRate;
 static BOOL appl_fNwSupportsDhcp;
 static BOOL appl_fNwSupportsCommSettings;
-
-/*------------------------------------------------------------------------------
-** Set to TRUE when an unexpected error occur. The main state machine will
-** return APPL_MODULE_UNEXPECTED_ERROR when this flag is set.
-**------------------------------------------------------------------------------
-*/
-static BOOL appl_fUnexpectedError = FALSE;
 
 /*------------------------------------------------------------------------------
 ** Set to TRUE the user init sequence is done.
@@ -365,12 +356,15 @@ static ABCC_CmdSeqRespStatusType HandleExceptionResp( ABP_MsgType* psMsg, void* 
 
    if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
    {
-      APPL_UnexpectedError();
+      ABCC_LOG_ERROR( ABCC_EC_RESP_MSG_E_BIT_SET,
+         ABCC_GetErrorCode( psMsg ),
+         "Get exception code failed (%" PRIu8 ")\n",
+         ABCC_GetErrorCode( psMsg ) );
       return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
    }
 
    ABCC_GetMsgData8( psMsg, &bException, 0 );
-   ABCC_DebugPrintf( "Exception Code: %X:\n\n", bException );
+   ABCC_LOG_INFO( "Exception Code: %X:\n", bException );
 
    (void)bException;
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
@@ -390,12 +384,15 @@ static ABCC_CmdSeqRespStatusType HandleExceptionInfoResp( ABP_MsgType* psMsg, vo
 
    if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
    {
-      APPL_UnexpectedError();
+      ABCC_LOG_ERROR( ABCC_EC_RESP_MSG_E_BIT_SET,
+         ABCC_GetErrorCode( psMsg ),
+         "Get exception info failed (%" PRIu8 ")\n",
+         ABCC_GetErrorCode( psMsg ) );
       return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
    }
 
    ABCC_GetMsgData8( psMsg, &bExceptionInfo, 0 );
-   ABCC_DebugPrintf( "Exception Info: %X:\n\n", bExceptionInfo );
+   ABCC_LOG_INFO( "Exception Info: %X:\n", bExceptionInfo );
 
    (void)bExceptionInfo;
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
@@ -420,15 +417,15 @@ static void UpdateAddressDone( const ABCC_CmdSeqResultType eSeqResult, void* pxU
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      ABCC_DebugPrintf( "UpdateAddressDone reported internally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateAddressDone reported internally aborted command sequence.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      ABCC_DebugPrintf( "UpdateAddressDone reported externally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateAddressDone reported externally aborted command sequence.\n" );
       break;
 
    default:
-      ABCC_DebugPrintf( "UpdateAddressDone reported aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateAddressDone reported aborted command sequence.\n" );
       break;
    }
 }
@@ -605,15 +602,15 @@ static void UpdateCommSettingsDone( const ABCC_CmdSeqResultType eSeqResult, void
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      ABCC_DebugPrintf( "UpdateCommSettingsDone reported internally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateCommSettingsDone reported internally aborted command sequence.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      ABCC_DebugPrintf( "UpdateCommSettingsDone reported externally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateCommSettingsDone reported externally aborted command sequence.\n" );
       break;
 
    default:
-      ABCC_DebugPrintf( "UpdateCommSettingsDone reported aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateCommSettingsDone reported aborted command sequence.\n" );
       break;
    }
 }
@@ -688,15 +685,15 @@ static void UpdateBaudRateDone( const ABCC_CmdSeqResultType eSeqResult, void* px
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      ABCC_DebugPrintf( "UpdateBaudRateDone reported internally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateBaudRateDone reported internally aborted command sequence.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      ABCC_DebugPrintf( "UpdateBaudRateDone reported externally aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateBaudRateDone reported externally aborted command sequence.\n" );
       break;
 
    default:
-      ABCC_DebugPrintf( "UpdateBaudRateDone reported aborted command sequence.\n" );
+      ABCC_LOG_INFO( "UpdateBaudRateDone reported aborted command sequence.\n" );
       break;
    }
 }
@@ -746,25 +743,28 @@ static void UserInitDone( const ABCC_CmdSeqResultType eSeqResult, void* pxUserDa
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      ABCC_DebugPrintf( "UserInitDone reported internally aborted command sequence.\n" );
-      APPL_UnexpectedError();
+      ABCC_LOG_ERROR( ABCC_EC_INTERNAL_ERROR,
+         0,
+         "UserInitDone reported internally aborted command sequence.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      ABCC_DebugPrintf( "UserInitDone reported externally aborted command sequence.\n" );
-      APPL_UnexpectedError();
+      ABCC_LOG_ERROR( ABCC_EC_INTERNAL_ERROR,
+         0,
+         "UserInitDone reported externally aborted command sequence.\n" );
       break;
 
    default:
-      ABCC_DebugPrintf( "UserInitDone reported aborted command sequence.\n" );
-      APPL_UnexpectedError();
+      ABCC_LOG_ERROR( ABCC_EC_INTERNAL_ERROR,
+         eSeqResult,
+         "UserInitDone reported unknown abort code.\n" );
       break;
    }
 }
 
-APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
+ABCC_ErrorCodeType APPL_HandleAbcc( void )
 {
-   static APPL_AbccHandlerStatusType eModuleStatus = APPL_MODULE_NO_ERROR;
+   static ABCC_ErrorCodeType eErrorCode = ABCC_EC_NO_ERROR;
    UINT32 lStartupTimeMs;
    ABCC_CommunicationStateType eAbccComState;
 
@@ -772,7 +772,7 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
    {
    case APPL_INIT:
 
-      eModuleStatus = APPL_MODULE_NO_ERROR;
+      eErrorCode = ABCC_EC_NO_ERROR;
       appl_fMsgReceivedEvent = FALSE;
       appl_fRdPdReceivedEvent = FALSE;
       appl_fTransmitMsgEvent = FALSE;
@@ -781,10 +781,10 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
 
       if( !ABCC_ModuleDetect() )
       {
-         eModuleStatus = APPL_MODULE_NOT_DETECTED;
+         eErrorCode = ABCC_EC_MODULE_NOT_DECTECTED;
       }
 
-      if( eModuleStatus == APPL_MODULE_NO_ERROR )
+      if( eErrorCode == ABCC_EC_NO_ERROR )
       {
          /*
          ** Init application data object
@@ -793,7 +793,7 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
                       APPL_GetNumAdi(),
                       APPL_asAdObjDefaultMap ) != APPL_NO_ERROR )
          {
-            eModuleStatus = APPL_MODULE_UNEXPECTED_ERROR;
+            eErrorCode = ABCC_EC_INTERNAL_ERROR;
          }
 #if ASM_OBJ_ENABLE
          /*
@@ -806,12 +806,12 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
 #endif
       }
 
-      if( eModuleStatus == APPL_MODULE_NO_ERROR )
+      if( eErrorCode == ABCC_EC_NO_ERROR )
       {
 #if APP_OBJ_ENABLE
          if( APP_GetCandidateFwAvailable() == TRUE )
          {
-            ABCC_DebugPrintf( "Waiting for firmware update to complete.\n" );
+            ABCC_LOG_INFO( "Waiting for firmware update to complete.\n" );
             lStartupTimeMs = APPL_FW_UPGRADE_STARTUP_TIME_MS;
          }
          else
@@ -830,11 +830,11 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
          }
          else
          {
-            eModuleStatus = APPL_MODULE_NOT_ANSWERING;
+            eErrorCode = ABCC_EC_MODULE_NOT_ANSWERING;
          }
       }
 
-      if( eModuleStatus != APPL_MODULE_NO_ERROR )
+      if( eErrorCode != ABCC_EC_NO_ERROR )
       {
          appl_eAbccHandlerState = APPL_HALT;
       }
@@ -853,15 +853,15 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
       else if( eAbccComState == ABCC_STARTUP_TIMEOUT )
       {
          appl_eAbccHandlerState = APPL_HALT;
-         eModuleStatus = APPL_MODULE_NOT_ANSWERING;
-         ABCC_DebugPrintf( "ABCC did not start within the expected time\n" );
+         eErrorCode = ABCC_EC_MODULE_NOT_ANSWERING;
+         ABCC_LOG_ERROR( ABCC_EC_MODULE_NOT_ANSWERING, 0, "ABCC did not start within the expected time\n" );
       }
 #if ABCC_CFG_DRV_ASSUME_FW_UPDATE_ENABLED
       else if( eAbccComState == ABCC_ASSUME_FW_UPDATE )
       {
          appl_eAbccHandlerState = APPL_WAIT_FW_UPDATE;
-         ABCC_DebugPrintf( "ABCC did not start within the expected time. Assume firmware update is ongoing. \n" \
-                           "Now waiting an additional %d ms\n", APPL_FW_UPGRADE_STARTUP_TIME_MS );
+         ABCC_LOG_INFO( "ABCC did not start within the expected time. Assume firmware update is ongoing. \n" \
+                           "Now waiting an additional %lu ms\n", APPL_FW_UPGRADE_STARTUP_TIME_MS );
          ABCC_WaitForFwUpdate( APPL_FW_UPGRADE_STARTUP_TIME_MS );
       }
 #endif
@@ -914,33 +914,20 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
       ABCC_TriggerWrPdUpdate();
 #endif
 
-      ABCC_RunDriver();
+      eErrorCode = ABCC_RunDriver();
 
-      APPL_CyclicalProcessing();
-
-      break;
-
-   case APPL_SHUTDOWN:
-
-      ABCC_HWReset();
-      eModuleStatus = APPL_MODULE_SHUTDOWN;
-      appl_eAbccHandlerState = APPL_HALT;
+      if( eErrorCode == ABCC_EC_NO_ERROR )
+      {
+         APPL_CyclicalProcessing();
+      }
 
       break;
 
-   case APPL_ABCCRESET:
+   case APPL_RESET:
 
       ABCC_HWReset();
       appl_eAbccHandlerState = APPL_INIT;
-      eModuleStatus = APPL_MODULE_NO_ERROR;
-      break;
-
-   case APPL_DEVRESET:
-
-      ABCC_HWReset();
-      eModuleStatus = APPL_MODULE_RESET;
-      appl_eAbccHandlerState = APPL_HALT;
-
+      eErrorCode = ABCC_EC_NO_ERROR;
       break;
 
    case APPL_HALT:
@@ -952,12 +939,7 @@ APPL_AbccHandlerStatusType APPL_HandleAbcc( void )
       break;
    }
 
-   if( appl_fUnexpectedError )
-   {
-      return( APPL_MODULE_UNEXPECTED_ERROR );
-   }
-
-   return( eModuleStatus );
+   return( eErrorCode );
 }
 
 #if APPL_USE_16BIT_NODE_ADDR
@@ -1105,25 +1087,14 @@ void APPL_SetCommSettings( APPL_CommSettingType eCommSettings1,
    appl_fSetCommSettings = TRUE;
 }
 
-void APPL_UnexpectedError( void )
-{
-   appl_fUnexpectedError = TRUE;
-}
-
-void APPL_RestartAbcc( void )
-{
-   appl_eAbccHandlerState = APPL_ABCCRESET;
-}
-
 void APPL_Shutdown( void )
 {
-   appl_eAbccHandlerState = APPL_SHUTDOWN;
+   ABCC_HWReset();
 }
-
 
 void APPL_Reset( void )
 {
-   appl_eAbccHandlerState = APPL_DEVRESET;
+   appl_eAbccHandlerState = APPL_RESET;
 }
 
 UINT16  ABCC_CbfAdiMappingReq( const AD_AdiEntryType**  const ppsAdiEntry,
@@ -1162,159 +1133,16 @@ void ABCC_CbfNewReadPd( void* pxReadPd )
    AD_UpdatePdReadData( pxReadPd );
 }
 
-void ABCC_CbfDriverError( ABCC_SeverityType eSeverity, ABCC_ErrorCodeType iErrorCode, UINT32 lAddInfo )
+void ABCC_CbfDriverError( ABCC_LogSeverityType eSeverity, ABCC_ErrorCodeType iErrorCode, UINT32 lAddInfo )
 {
-   switch( eSeverity )
-   {
-      case ABCC_SEV_FATAL:
-      case ABCC_SEV_WARNING:
-         APPL_UnexpectedError();
-         break;
-      default:
-         break;
-   }
-
+   (void)eSeverity;
    (void)iErrorCode;
    (void)lAddInfo;
 }
 
-void ABCC_CbfReceiveMsg( ABP_MsgType* psReceivedMsg )
-{
-   switch(  ABCC_GetMsgDestObj( psReceivedMsg ) )
-   {
-#if MQTT_OBJ_ENABLE
-   case ABP_OBJ_NUM_MQTT:
-
-      MQTT_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if OPCUA_OBJ_ENABLE
-   case ABP_OBJ_NUM_OPCUA:
-
-      OPCUA_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if SAFE_OBJ_ENABLE
-   case ABP_OBJ_NUM_SAFE:
-
-      SAFE_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if EPL_OBJ_ENABLE
-   case ABP_OBJ_NUM_EPL:
-
-      EPL_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if EIP_OBJ_ENABLE
-   case ABP_OBJ_NUM_EIP:
-
-      EIP_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if PRT_OBJ_ENABLE
-   case ABP_OBJ_NUM_PNIO:
-
-      PRT_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if DPV1_OBJ_ENABLE
-   case ABP_OBJ_NUM_DPV1:
-
-      DPV1_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if DEV_OBJ_ENABLE
-   case ABP_OBJ_NUM_DEV:
-
-      DEV_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if MOD_OBJ_ENABLE
-   case ABP_OBJ_NUM_MOD:
-
-      MOD_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if COP_OBJ_ENABLE
-   case ABP_OBJ_NUM_COP:
-
-      COP_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if ETN_OBJ_ENABLE
-   case ABP_OBJ_NUM_ETN:
-
-      ETN_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if ECT_OBJ_ENABLE
-   case ABP_OBJ_NUM_ECT:
-
-      ECT_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-   case ABP_OBJ_NUM_APPD:
-
-      AD_ProcObjectRequest( psReceivedMsg );
-      break;
-
-#if APP_OBJ_ENABLE
-   case ABP_OBJ_NUM_APP:
-
-      APP_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if SYNC_OBJ_ENABLE
-   case ABP_OBJ_NUM_SYNC:
-
-      SYNC_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if CCL_OBJ_ENABLE
-   case ABP_OBJ_NUM_CCL:
-
-      CCL_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if CFN_OBJ_ENABLE
-   case ABP_OBJ_NUM_CFN:
-
-      CFN_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if CIET_OBJ_ENABLE
-   case ABP_OBJ_NUM_CIET:
-
-      CIET_ProcessCmdMsg(psReceivedMsg);
-      break;
-#endif
-#if ASM_OBJ_ENABLE
-   case ABP_OBJ_NUM_ASM:
-
-      ASM_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-#if BAC_OBJ_ENABLE
-   case ABP_OBJ_NUM_BAC:
-
-      BAC_ProcessCmdMsg( psReceivedMsg );
-      break;
-#endif
-   default:
-
-      /*
-      ** We have received a command to an unsupported object.
-      */
-      ABP_SetMsgErrorResponse( psReceivedMsg, 1, ABP_ERR_UNSUP_OBJ );
-      ABCC_SendRespMsg( psReceivedMsg );
-      break;
-   }
-}
-
 void ABCC_CbfWdTimeout( void )
 {
-   ABCC_DebugPrintf( "ABCC watchdog timeout\n" );
+   ABCC_LOG_WARNING( ABCC_EC_MODULE_NOT_ANSWERING, 0, "ABCC watchdog timeout\n" );
 
 #if ABCC_CFG_DRV_ASSUME_FW_UPDATE_ENABLED
    if( ABCC_IsFirstCommandPending() )
@@ -1322,8 +1150,8 @@ void ABCC_CbfWdTimeout( void )
       if( ABCC_WaitForFwUpdate( APPL_FW_UPGRADE_STARTUP_TIME_MS ) )
       {
          appl_eAbccHandlerState = APPL_WAIT_FW_UPDATE;
-         ABCC_DebugPrintf( "Failed to establish communication within the expected time. Assume firmware \n" \
-                           "update is ongoing. Now waiting an additional %d ms\n", APPL_FW_UPGRADE_STARTUP_TIME_MS );
+         ABCC_LOG_INFO( "Failed to establish communication within the expected time. Assume firmware" \
+                        "update is ongoing. Now waiting an additional %lu ms\n", APPL_FW_UPGRADE_STARTUP_TIME_MS );
       }
    }
 #endif
@@ -1331,7 +1159,7 @@ void ABCC_CbfWdTimeout( void )
 
 void ABCC_CbfWdTimeoutRecovered( void )
 {
-   ABCC_DebugPrintf( "ABCC watchdog recovered\n" );
+   ABCC_LOG_WARNING( ABCC_EC_NO_ERROR, 0, "ABCC watchdog recovered\n" );
 }
 
 #if ABCC_CFG_SYNC_ENABLED
@@ -1389,7 +1217,7 @@ void ABCC_CbfAnbStateChanged( ABP_AnbStateType eNewAnbState )
    (void)AnbStateString[ 0 ];
 
    appl_eAnbState = eNewAnbState;
-   ABCC_DebugPrintf( "ANB_STATUS: %s \n",
+   ABCC_LOG_INFO( "ANB_STATUS: %s \n",
                      AnbStateString[ appl_eAnbState ] );
 
    switch( appl_eAnbState )

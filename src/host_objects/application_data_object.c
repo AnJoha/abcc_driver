@@ -22,7 +22,7 @@
 #include "abcc_application_data_interface.h"
 #include "abcc.h"
 #include "application_abcc_handler.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 #include "application_data_object.h"
 
 #define AD_OA_REV_VALUE                        3

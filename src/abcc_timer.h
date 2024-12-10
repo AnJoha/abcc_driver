@@ -20,7 +20,7 @@
 
 #include "abcc_config.h"
 #include "abcc_types.h"
-#include "abcc_system_adaptation.h"
+#include "abcc_hardware_abstraction.h"
 
 #define ABCC_TIMER_NO_HANDLE ( 0xff )
 
