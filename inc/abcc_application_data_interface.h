@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -20,43 +20,6 @@
 
 #include "abcc_config.h"
 #include "abcc_types.h"
-
-/*------------------------------------------------------------------------------
-** Access descriptor for the ADIs
-**------------------------------------------------------------------------------
-*/
-#define AD_ADI_DESC______  ( 0                            | 0                               | 0                                | 0                         | 0                         )
-#define AD_ADI_DESC_____G  ( 0                            | 0                               | 0                                | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC____S_  ( 0                            | 0                               | 0                                | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC____SG  ( 0                            | 0                               | 0                                | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC___W__  ( 0                            | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | 0                         )
-#define AD_ADI_DESC___W_G  ( 0                            | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC___WS_  ( 0                            | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC___WSG  ( 0                            | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC__R___  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | 0                         | 0                         )
-#define AD_ADI_DESC__R__G  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC__R_S_  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC__R_SG  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC__RW__  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | 0                         )
-#define AD_ADI_DESC__RW_G  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC__RWS_  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC__RWSG  ( 0                            | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_N____  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | 0                                | 0                         | 0                         )
-#define AD_ADI_DESC_N___G  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | 0                                | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_N__S_  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | 0                                | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC_N__SG  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | 0                                | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_N_W__  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | 0                         )
-#define AD_ADI_DESC_N_W_G  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_N_WS_  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC_N_WSG  ( ABP_APPD_DESCR_NVS_PARAMETER | 0                               | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_NR___  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | 0                         | 0                         )
-#define AD_ADI_DESC_NR__G  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_NR_S_  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC_NR_SG  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | 0                                | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_NRW__  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | 0                         )
-#define AD_ADI_DESC_NRW_G  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | 0                         | ABP_APPD_DESCR_GET_ACCESS )
-#define AD_ADI_DESC_NRWS_  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | 0                         )
-#define AD_ADI_DESC_NRWSG  ( ABP_APPD_DESCR_NVS_PARAMETER | ABP_APPD_DESCR_MAPPABLE_READ_PD | ABP_APPD_DESCR_MAPPABLE_WRITE_PD | ABP_APPD_DESCR_SET_ACCESS | ABP_APPD_DESCR_GET_ACCESS )
 
 /*
 ** Type for defining the direction of the process data map.

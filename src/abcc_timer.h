@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -20,7 +20,7 @@
 
 #include "abcc_config.h"
 #include "abcc_types.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_system_adaptation.h"
 
 #define ABCC_TIMER_NO_HANDLE ( 0xff )
 

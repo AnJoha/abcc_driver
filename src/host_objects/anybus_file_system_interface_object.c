@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -133,7 +133,12 @@ static anb_fsi_TransactionEntryType* anb_fsi_AllocTransactionEntry( void )
 */
 static void anb_fsi_FreeTransactionEntry( anb_fsi_TransactionEntryType* psEntry )
 {
-   ABCC_ASSERT( psEntry );
+   if( !psEntry )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR,
+         0,
+         "Attempt to free NULL entry\n" );
+   }
 
    psEntry->fInUse = FALSE;
    psEntry->bSrcId = 0;
@@ -214,7 +219,12 @@ static void anb_fsi_MsgResponseHandler( ABP_MsgType* psMsg )
    anb_fsi_TransactionEntryType* psEntry;
 
    psEntry = anb_fsi_FindTransactionEntry( ABCC_GetMsgSourceId( psMsg ) );
-   ABCC_ASSERT( psEntry );
+   if( !psEntry )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR,
+         0,
+         "Failed to find transaction entry\n" );
+   }
 
    iInstance = ABCC_GetMsgInstance( psMsg );
 
@@ -289,7 +299,7 @@ static void anb_fsi_MsgResponseHandler( ABP_MsgType* psMsg )
          if( eMsgResult == ABP_ERR_NO_ERROR )
          {
             iDataSize = ABCC_GetMsgDataSize( psMsg );
-            ABCC_GetMsgString( psMsg, psEntry->uArgs.sFRead.pbDest, iDataSize, 0 );
+            ABCC_GetMsgString( psMsg, (char*)psEntry->uArgs.sFRead.pbDest, iDataSize, 0 );
          }
          else
          {
@@ -810,7 +820,7 @@ ABCC_ErrorCodeType ANB_FSI_FileWrite( UINT16 iInstance, UINT8* pbSrc, UINT16 iRe
 
    ABCC_SetMsgHeader( psMsg, ABP_OBJ_NUM_FSI, iInstance, 0, ABP_FSI_CMD_FILE_WRITE, iReqSize, ABCC_GetNewSourceId() );
    ABCC_SetMsgCmdExt( psMsg, 0 );
-   ABCC_SetMsgString( psMsg, pbSrc, iReqSize, 0 );
+   ABCC_SetMsgString( psMsg, (char*)pbSrc, iReqSize, 0 );
 
    psEntry->bSrcId = ABCC_GetMsgSourceId( psMsg );
    psEntry->pnCallback = pnCallback;

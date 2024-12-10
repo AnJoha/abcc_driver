@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -17,7 +17,7 @@
 
 #include "abcc_types.h"
 #include "abcc.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_system_adaptation.h"
 #include "abcc_object_config.h"
 #include "ethercat_object.h"
 #include "abp.h"
@@ -358,9 +358,10 @@ static void GenerateEnumAdiList( ABP_MsgType* psNewMessage )
             ** to prevent an 'Only half of the ABP_ENUM ADIs shows up as ENUM!'
             ** situation.
             */
-            ABCC_ERROR( ABCC_SEV_WARNING,
-                        ABCC_EC_NO_RESOURCES,
-                        (UINT32)APPL_asAdiEntryList[ iAdiIndex ].iInstance );
+            ABCC_LOG_WARNING( ABCC_EC_NO_RESOURCES,
+               (UINT32)APPL_asAdiEntryList[ iAdiIndex ].iInstance,
+               "Message buffer too small to fit all ENUM ADIs (instance %" PRIu16 ")\n",
+               APPL_asAdiEntryList[ iAdiIndex ].iInstance );
             bErrCode = ABP_ERR_NO_RESOURCES;
 
             break; /* Break for( ... ) */

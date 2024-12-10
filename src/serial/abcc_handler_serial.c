@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -20,8 +20,8 @@
 #include "abp.h"
 #include "abcc.h"
 #include "../abcc_link.h"
-#include "abcc_hardware_abstraction.h"
-#include "../abcc_debug_error.h"
+#include "abcc_system_adaptation.h"
+#include "abcc_log.h"
 #include "../abcc_handler.h"
 #include "../abcc_timer.h"
 #include "../abcc_command_sequencer.h"
@@ -41,8 +41,10 @@ ABCC_ErrorCodeType ABCC_SerRunDriver( void )
    {
       if( eMainState != ABCC_DRV_ERROR )
       {
-         ABCC_ERROR(ABCC_SEV_WARNING, ABCC_EC_INCORRECT_STATE, 0);
-         ABCC_SetMainStateError();
+         ABCC_LOG_ERROR( ABCC_EC_INCORRECT_STATE,
+            (UINT32)eMainState,
+            "ABCC_RunDriver() called in incorrect state (%d)\n",
+            eMainState );
       }
       return( ABCC_EC_INCORRECT_STATE );
    }

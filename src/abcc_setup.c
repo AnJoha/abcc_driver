@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -22,7 +22,7 @@
 #include "abcc_command_sequencer_interface.h"
 #include "abcc_handler.h"
 #include "abcc_driver_interface.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
 
 /*
 ** Invalid ADI index.
@@ -329,9 +329,14 @@ static ABCC_CmdSeqRespStatusType DataFormatResp( ABP_MsgType* psMsg, void* pxUse
 
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
 
    abcc_fFirstCommandPending = FALSE;
 
@@ -345,10 +350,13 @@ static ABCC_CmdSeqRespStatusType DataFormatResp( ABP_MsgType* psMsg, void* pxUse
       abcc_eNetFormat = NET_BIGENDIAN;
       break;
    default:
+      ABCC_LOG_ERROR( ABCC_EC_UNKNOWN_ENDIAN,
+         (UINT32)abcc_eNetFormat,
+         "Unknown endian %" PRIu8 "\n",
+         bFormat );
       break;
    }
-   ABCC_ASSERT( abcc_eNetFormat < NET_UNKNOWN );
-   DEBUG_EVENT( "RSP MSG_DATA_FORMAT: %d\n", abcc_eNetFormat );
+   ABCC_LOG_INFO( "RSP MSG_DATA_FORMAT: %d\n", abcc_eNetFormat );
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
 }
 
@@ -380,9 +388,14 @@ static ABCC_CmdSeqRespStatusType ParamSupportResp( ABP_MsgType* psMsg, void* pxU
    UINT8 bParamSupport;
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
 
    ABCC_GetMsgData8( psMsg, &bParamSupport, 0 );
    if( bParamSupport == FALSE )
@@ -393,7 +406,7 @@ static ABCC_CmdSeqRespStatusType ParamSupportResp( ABP_MsgType* psMsg, void* pxU
    {
       abcc_eParameterSupport = PARAMETER_SUPPORT;
    }
-   DEBUG_EVENT( "RSP MSG_GET_PARAM_SUPPORT: %d\n", abcc_eParameterSupport );
+   ABCC_LOG_INFO( "RSP MSG_GET_PARAM_SUPPORT: %d\n", abcc_eParameterSupport );
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
 }
 
@@ -424,11 +437,17 @@ static ABCC_CmdSeqRespStatusType ModuleTypeResp( ABP_MsgType* psMsg, void* pxUse
 {
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
+
    ABCC_GetMsgData16( psMsg, &abcc_iModuleType, 0 );
-   DEBUG_EVENT( "RSP MSG_GET_MODULE_ID: 0x%x\n", abcc_iModuleType );
+   ABCC_LOG_INFO( "RSP MSG_GET_MODULE_ID: 0x%x\n", abcc_iModuleType );
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
 }
 
@@ -459,11 +478,17 @@ static ABCC_CmdSeqRespStatusType NetworkTypeResp( ABP_MsgType* psMsg, void* pxUs
 {
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
+
    ABCC_GetMsgData16( psMsg, &abcc_iNetworkType, 0 );
-   DEBUG_EVENT( "RSP MSG_GET_NETWORK_ID: 0x%x\n", abcc_iNetworkType );
+   ABCC_LOG_INFO( "RSP MSG_GET_NETWORK_ID: 0x%x\n", abcc_iNetworkType );
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
 }
 
@@ -494,13 +519,19 @@ static ABCC_CmdSeqRespStatusType FirmwareVersionResp( ABP_MsgType* psMsg, void* 
 {
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
+
    ABCC_GetMsgData8( psMsg, &abcc_sFwVersion.bMajor, 0 );
    ABCC_GetMsgData8( psMsg, &abcc_sFwVersion.bMinor, 1 );
    ABCC_GetMsgData8( psMsg, &abcc_sFwVersion.bBuild, 2 );
-   DEBUG_EVENT( "RSP MSG_GET_FW_VERSION: %" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n",
+   ABCC_LOG_INFO( "RSP MSG_GET_FW_VERSION: %" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n",
          abcc_sFwVersion.bMajor,
          abcc_sFwVersion.bMinor,
          abcc_sFwVersion.bBuild );
@@ -557,9 +588,10 @@ static ABCC_CmdSeqCmdStatusType ReadWriteMapCmd( ABP_MsgType* psMsg, void* pxUse
 
          if( iLocalMapIndex == AD_INVALID_ADI_INDEX )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_DEFAULT_MAP_ERR,
-                        (UINT32)abcc_psDefaultMap[ abcc_iMappingIndex ].iInstance );
-            ABCC_SetMainStateError();
+            ABCC_LOG_ERROR( ABCC_EC_DEFAULT_MAP_ERR,
+               (UINT32)abcc_psDefaultMap[ abcc_iMappingIndex ].iInstance,
+               "Error in default map, instance %" PRIu16 " doesn't exist\n",
+               abcc_psDefaultMap[ abcc_iMappingIndex ].iInstance );
             return( ABCC_CMDSEQ_CMD_ABORT );
          }
       }
@@ -674,10 +706,16 @@ static ABCC_CmdSeqRespStatusType ReadWriteMapResp( ABP_MsgType* psMsg, void* pxU
 {
    (void)pxUserData;
 
-   DEBUG_EVENT( "RSP MSG_MAP_IO_****\n" );
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   ABCC_LOG_INFO( "RSP MSG_MAP_IO_****\n" );
+
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
 
    if( abcc_psAdiEntry && abcc_psDefaultMap && ( abcc_psDefaultMap[ abcc_iMappingIndex ].eDir == PD_END_MAP ) )
    {
@@ -706,23 +744,26 @@ static void TriggerUserInit( const ABCC_CmdSeqResultType eSeqResult, void* pxUse
    switch( eSeqResult )
    {
    case ABCC_CMDSEQ_RESULT_COMPLETED:
-      DEBUG_EVENT( "Mapped PD size, RdPd %d WrPd: %d\n", abcc_iPdReadSize, abcc_iPdWriteSize );
+      ABCC_LOG_INFO( "Mapped PD size, RdPd %d WrPd: %d\n", abcc_iPdReadSize, abcc_iPdWriteSize );
       ABCC_CbfUserInitReq();
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      DEBUG_EVENT( "TriggerUserInit reported internally aborted command sequence.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "TriggerUserInit reported internally aborted command sequence.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      DEBUG_EVENT( "TriggerUserInit reported externally aborted command sequence.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "TriggerUserInit reported externally aborted command sequence.\n" );
       break;
 
    default:
-      DEBUG_EVENT( "TriggerUserInit reported aborted command sequence.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "TriggerUserInit reported aborted command sequence.\n" );
       break;
    }
 }
@@ -754,9 +795,14 @@ static ABCC_CmdSeqRespStatusType RdPdSizeResp( ABP_MsgType* psMsg, void* pxUserD
 {
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
 
    if( abcc_psDefaultMap == NULL )
    {
@@ -773,7 +819,17 @@ static ABCC_CmdSeqRespStatusType RdPdSizeResp( ABP_MsgType* psMsg, void* pxUserD
       ** Verify that ABCC and driver has the same view
       */
       ABCC_GetMsgData16( psMsg, &iSize, 0 );
-      ABCC_ASSERT( abcc_iPdReadSize == iSize );
+
+      if( abcc_iPdReadSize != iSize )
+      {
+         ABCC_LOG_ERROR( ABCC_EC_PD_SIZE_MISMATCH,
+            iSize,
+            "Read PD size mismatch, ABCC: %d Driver: %d\n",
+            abcc_iPdReadSize,
+            iSize );
+
+         return( ABCC_CMDSEQ_RESP_ABORT );
+      }
    }
 
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
@@ -805,10 +861,14 @@ static ABCC_CmdSeqCmdStatusType WrPdSizeCmd( ABP_MsgType* psMsg, void* pxUserDat
 static ABCC_CmdSeqRespStatusType WrPdSizeResp( ABP_MsgType* psMsg, void* pxUserData )
 {
    (void)pxUserData;
-
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
 
    if( abcc_psDefaultMap == NULL )
    {
@@ -825,7 +885,16 @@ static ABCC_CmdSeqRespStatusType WrPdSizeResp( ABP_MsgType* psMsg, void* pxUserD
       ** Verify that ABCC and driver has the same view
       */
       ABCC_GetMsgData16( psMsg, &iSize, 0 );
-      ABCC_ASSERT( abcc_iPdWriteSize == iSize );
+      if( abcc_iPdWriteSize != iSize )
+      {
+         ABCC_LOG_ERROR( ABCC_EC_PD_SIZE_MISMATCH,
+            iSize,
+            "Write PD size mismatch, ABCC: %d Driver: %d\n",
+            abcc_iPdWriteSize,
+            iSize );
+
+         return( ABCC_CMDSEQ_RESP_ABORT );
+      }
    }
 
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
@@ -859,11 +928,17 @@ static ABCC_CmdSeqRespStatusType SetupCompleteResp( ABP_MsgType* psMsg, void* px
 {
    (void)pxUserData;
 
-   ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                    ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET,
-                    (UINT32)ABCC_GetErrorCode( psMsg ) );
+   if( ABCC_VerifyMessage( psMsg ) != ABCC_EC_NO_ERROR )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_RESP_MSG_E_BIT_SET,
+         (UINT32)ABCC_GetErrorCode( psMsg ),
+         "Unexpected error response %" PRIu8 "\n",
+         ABCC_GetErrorCode( psMsg ) );
+      return( ABCC_CMDSEQ_RESP_ABORT );
+   }
+
    pnABCC_DrvSetPdSize( abcc_iPdReadSize, abcc_iPdWriteSize );
-   DEBUG_EVENT( "RSP MSG_SETUP_COMPLETE\n" );
+   ABCC_LOG_INFO( "RSP MSG_SETUP_COMPLETE\n" );
    return( ABCC_CMDSEQ_RESP_EXEC_NEXT );
 }
 
@@ -874,22 +949,25 @@ static void SetupDone( const ABCC_CmdSeqResultType eSeqResult, void* pxUserData 
    switch( eSeqResult )
    {
    case ABCC_CMDSEQ_RESULT_COMPLETED:
-      DEBUG_EVENT( "Mapped PD size, RdPd %" PRIu16 " WrPd: %" PRIu16 "\n", abcc_iPdReadSize, abcc_iPdWriteSize );
+      ABCC_LOG_INFO( "Mapped PD size, RdPd %" PRIu16 " WrPd: %" PRIu16 "\n", abcc_iPdReadSize, abcc_iPdWriteSize );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_INT:
-      DEBUG_EVENT( "SetupDone reported internally aborted command sequence. PD mapping can be incomplete.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "SetupDone reported internally aborted command sequence. PD mapping can be incomplete.\n" );
       break;
 
    case ABCC_CMDSEQ_RESULT_ABORT_EXT:
-      DEBUG_EVENT( "SetupDone reported externally aborted command sequence. PD mapping can be incomplete.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "SetupDone reported externally aborted command sequence. PD mapping can be incomplete.\n" );
       break;
 
    default:
-      DEBUG_EVENT( "SetupDone reported aborted command sequence. PD mapping can be incomplete.\n" );
-      ABCC_ERROR_HANDLER( ABCC_SEV_WARNING, ABCC_EC_SETUP_FAILED, (UINT32)eSeqResult );
+      ABCC_LOG_WARNING( ABCC_EC_SETUP_FAILED,
+         (UINT32)eSeqResult,
+         "SetupDone reported aborted command sequence. PD mapping can be incomplete.\n" );
       break;
    }
 }
@@ -983,7 +1061,7 @@ void ABCC_UserInitComplete( void )
    ABCC_CmdSeqAdd( SetupSeqAfterUserInit, SetupDone, NULL, NULL );
 }
 #else
-void  ABCC_StartSetup( void )
+void ABCC_StartSetup( void )
 {
    ABP_MsgType* psMsg;
    abcc_fFirstCommandPending = TRUE;
@@ -991,7 +1069,11 @@ void  ABCC_StartSetup( void )
    bSetupSubState = 0;
    pasSetupSeq = SetupSeqBeforeUserInit;
    psMsg = ABCC_GetCmdMsgBuffer();
-   ABCC_ASSERT( psMsg );
+   if( !psMsg )
+   {
+      ABCC_LOG_ERROR( ABCC_EC_NO_RESOURCES, 0, "No resources for setup\n" );
+      return;
+   }
    SendSetupCommand( psMsg );
 }
 
@@ -999,7 +1081,11 @@ void ABCC_UserInitComplete( void )
 {
    ABP_MsgType* psMsg;
    psMsg = ABCC_GetCmdMsgBuffer();
-   ABCC_ASSERT( psMsg );
+if( !psMsg )
+   {
+      ABCC_LOG_ERROR( ABCC_EC_NO_RESOURCES, 0, "No resources for setup\n" );
+      return;
+   }
    eSetupState = SETUP_AFTER_USER_INIT;
    bSetupSubState = 0;
    pasSetupSeq = SetupSeqAfterUserInit;

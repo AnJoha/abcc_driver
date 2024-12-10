@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -24,20 +24,19 @@
 /*------------------------------------------------------------------------------
 ** CRC_Crc32()
 **
-** Calculates a CRC32 checksum on the indicated bytes including transforming
-** input bytes from LSB to MSB for the SPI use.
+** Calculates a CRC32 checksum on the indicated octets for SPI use.
 **------------------------------------------------------------------------------
 ** Inputs:
 **    pbBufferStart            - Where to start the calculation.
-**    iLength                  - The amount of bytes to include.
+**    xLength                  - The amount of octets to include.
 **
 ** Outputs:
 **    Returns                  - The calculated CRC32 checksum for the SPI.
 **
 ** Usage:
-**    iCrc = CRC_Crc16( pbStart, 20 );
+**    iCrc = CRC_Crc32( pbStart, 20 );
 **------------------------------------------------------------------------------
 */
-EXTFUNC UINT32 CRC_Crc32( UINT16* piBufferStart, UINT16 iLength );
+EXTFUNC UINT32 CRC_Crc32( UINT8* pbBuffer, size_t xLength );
 
 #endif  /* inclusion lock */

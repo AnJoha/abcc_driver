@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -22,7 +22,7 @@
 #include "abcc_application_data_interface.h"
 #include "abcc.h"
 #include "application_abcc_handler.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_system_adaptation.h"
 #include "application_data_object.h"
 
 #define AD_OA_REV_VALUE                        3
@@ -395,7 +395,10 @@ static void UpdateMapSize( ad_MapInfoType* psMap )
             ** Pull the plug! The data in these tables should already have
             ** been checked and should be OK!
             */
-            ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_ERROR_IN_PD_MAP_CONFIG, (UINT32)iAdiIndex );
+            ABCC_LOG_FATAL( ABCC_EC_ERROR_IN_PD_MAP_CONFIG,
+               (UINT32)iAdiIndex,
+               "Error in PD map configuration, ADI index out of range (%" PRIu16 ")\n",
+               iAdiIndex );
          }
 
          psMap->iPdSize +=
@@ -1064,7 +1067,10 @@ const ad_AllPropertiesType* GetDefaultProperties( UINT8 bDataType )
       }
       else
       {
-         ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)bDataType );
+         ABCC_LOG_WARNING( ABCC_EC_UNSUPPORTED_DATA_TYPE,
+            (UINT32)bDataType,
+            "Unsupported data type (%" PRIu8 ")\n",
+            bDataType );
          puDataProp = NULL;
       }
       break;
@@ -1319,10 +1325,10 @@ static UINT8 checkMinMax( ad_AllDataType* puValue,
       break;
 
    default:
-      /*
-      ** Undefined data type
-      */
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)bDataType );
+      ABCC_LOG_WARNING( ABCC_EC_UNSUPPORTED_DATA_TYPE,
+         (UINT32)bDataType,
+         "Unsupported data type (%" PRIu8 ")\n",
+         bDataType );
       break;
    }
 
@@ -1665,7 +1671,10 @@ static void WriteBufferFromPdMap( void* pxDstPdDataBuf,
                ** Pull the plug! The data in these tables should already have
                ** been checked and should be OK!
                */
-               ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_ERROR_IN_WRITE_MAP_CONFIG, (UINT32)(paiPdMap->iAdiIndex) );
+               ABCC_LOG_FATAL( ABCC_EC_ERROR_IN_PD_MAP_CONFIG,
+                  (UINT32)paiPdMap->iAdiIndex,
+                  "Error in PD map configuration, ADI index out of range (%" PRIu16 ")\n",
+                  paiPdMap->iAdiIndex );
             }
             AD_GetAdiValue( &ad_asADIEntryList[ paiPdMap->iAdiIndex ],
                             pxDstPdDataBuf,
@@ -1717,7 +1726,10 @@ static void WritePdMapFromBuffer( const ad_MapInfoType* pasPdMap,
                ** Pull the plug! The data in these tables should already have
                ** been checked and should be OK!
                */
-               ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_ERROR_IN_READ_MAP_CONFIG, (UINT32)(paiPdMap->iAdiIndex) );
+               ABCC_LOG_FATAL( ABCC_EC_ERROR_IN_READ_MAP_CONFIG,
+                  (UINT32)paiPdMap->iAdiIndex,
+                  "Error in read map configuration, ADI index out of range (%" PRIu16 ")\n",
+                  paiPdMap->iAdiIndex );
             }
             SetAdiValue( &ad_asADIEntryList[ paiPdMap->iAdiIndex ],
                          pxSrcPdDataBuf,
@@ -1771,9 +1783,10 @@ EXTFUNC APPL_ErrCodeType AD_Init( const AD_AdiEntryType* psAdiEntry,
 
          if( iAdiIndex == AD_INVALID_ADI_INDEX )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_UNKNOWN_ADI );
-            ABCC_DEBUG_ERR( "Requested ADI could not be found %" PRIu16 "\n",
-                            ad_asDefaultMap[ iMapIndex ].iInstance );
+            ABCC_LOG_ERROR( ABCC_EC_APPLICATION_SPECIFIC,
+               APPL_AD_UNKNOWN_ADI,
+               "Requested ADI could not be found (%" PRIu16 ")\n",
+               ad_asDefaultMap[ iMapIndex ].iInstance );
 
             return( APPL_AD_UNKNOWN_ADI );
          }
@@ -1794,9 +1807,10 @@ EXTFUNC APPL_ErrCodeType AD_Init( const AD_AdiEntryType* psAdiEntry,
          {
             if( ad_ReadMapInfo.iNumMappedAdi >= ad_ReadMapInfo.iMaxNumMappedAdi )
             {
-               ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_TOO_MANY_READ_MAPPINGS );
-               ABCC_DEBUG_ERR( "Too many read mappings. Max: %" PRIu16 "\n",
-                               ad_ReadMapInfo.iMaxNumMappedAdi );
+               ABCC_LOG_ERROR( ABCC_EC_APPLICATION_SPECIFIC,
+                  APPL_AD_TOO_MANY_READ_MAPPINGS,
+                  "Too many read mappings. Max: %" PRIu16 "\n",
+                  ad_ReadMapInfo.iMaxNumMappedAdi );
 
                return( APPL_AD_TOO_MANY_READ_MAPPINGS );
             }
@@ -1810,9 +1824,10 @@ EXTFUNC APPL_ErrCodeType AD_Init( const AD_AdiEntryType* psAdiEntry,
          {
             if( ad_WriteMapInfo.iNumMappedAdi >= ad_WriteMapInfo.iMaxNumMappedAdi )
             {
-               ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_TOO_MANY_WRITE_MAPPINGS );
-               ABCC_DEBUG_ERR( "Too many write mappings. Max: %" PRIu16 "\n",
-                               ad_WriteMapInfo.iMaxNumMappedAdi );
+               ABCC_LOG_ERROR( ABCC_EC_APPLICATION_SPECIFIC,
+                  APPL_AD_TOO_MANY_WRITE_MAPPINGS,
+                  "Too many write mappings. Max: %" PRIu16 "\n",
+                  ad_WriteMapInfo.iMaxNumMappedAdi );
 
                return( APPL_AD_TOO_MANY_WRITE_MAPPINGS );
             }
@@ -1831,18 +1846,22 @@ EXTFUNC APPL_ErrCodeType AD_Init( const AD_AdiEntryType* psAdiEntry,
 
    if( ad_ReadMapInfo.iPdSize > ABCC_CFG_MAX_PROCESS_DATA_SIZE )
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_PD_READ_SIZE_ERR );
-      ABCC_DEBUG_ERR( "Read map size too big. Max: %d Actual: %" PRIu16 ".\n",
-                      ABCC_CFG_MAX_PROCESS_DATA_SIZE, ad_ReadMapInfo.iPdSize );
+      ABCC_LOG_ERROR( ABCC_EC_APPLICATION_SPECIFIC,
+         APPL_AD_PD_READ_SIZE_ERR,
+         "Read map size too big. Max: %d Actual: %" PRIu16 "\n",
+         ABCC_CFG_MAX_PROCESS_DATA_SIZE,
+         ad_ReadMapInfo.iPdSize );
 
       return( APPL_AD_PD_READ_SIZE_ERR );
    }
 
    if( ad_WriteMapInfo.iPdSize > ABCC_CFG_MAX_PROCESS_DATA_SIZE )
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_PD_WRITE_SIZE_ERR );
-      ABCC_DEBUG_ERR( "Write map size too big. Max: %d Actual: %" PRIu16 ".\n",
-                      ABCC_CFG_MAX_PROCESS_DATA_SIZE, ad_WriteMapInfo.iPdSize );
+      ABCC_LOG_ERROR( ABCC_EC_APPLICATION_SPECIFIC,
+         APPL_AD_PD_WRITE_SIZE_ERR,
+         "Write map size too big. Max: %d Actual: %" PRIu16 "\n",
+         ABCC_CFG_MAX_PROCESS_DATA_SIZE,
+         ad_WriteMapInfo.iPdSize );
 
       return( APPL_AD_PD_WRITE_SIZE_ERR );
    }
@@ -1891,9 +1910,10 @@ UINT16 AD_GetMapSizeOctets( const AD_MapType* pasMap )
 
          if( iAdiIndex == AD_INVALID_ADI_INDEX )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_UNKNOWN_ADI );
-            ABCC_DEBUG_ERR( "Requested ADI could not be found %" PRIu16 "\n",
-                            pasMap->iInstance );
+            ABCC_LOG_WARNING( ABCC_EC_APPLICATION_SPECIFIC,
+               APPL_AD_UNKNOWN_ADI,
+               "Requested ADI could not be found (%" PRIu16 ")\n",
+               pasMap->iInstance );
 
             return( 0 );
          }
@@ -2444,7 +2464,10 @@ void AD_ProcObjectRequest( ABP_MsgType* psMsgBuffer )
                ** this ABP_ENUM ADI, and the ABP_ENUM data type is quite
                ** pointless without those. Notify the user.
                */
-               ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_NO_RESOURCES, (UINT32)psAdiEntry->iInstance );
+               ABCC_LOG_WARNING( ABCC_EC_NO_RESOURCES,
+                  (UINT32)psAdiEntry->iInstance,
+                  "Properties not defined for ENUM ADI (instance %" PRIu16 ")\n",
+                  psAdiEntry->iInstance );
                bErrCode = ABP_ERR_NO_RESOURCES;
             }
             else
@@ -2704,9 +2727,10 @@ void AD_WriteBufferFromPdMap( void* pxDstPdDataBuf,
 
          if( iAdiIndex == AD_INVALID_ADI_INDEX )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_UNKNOWN_ADI );
-            ABCC_DEBUG_ERR( "Requested ADI could not be found %" PRIu16 "\n",
-                            pasMap->iInstance );
+            ABCC_LOG_WARNING( ABCC_EC_APPLICATION_SPECIFIC,
+               APPL_AD_UNKNOWN_ADI,
+               "Requested ADI could not be found %" PRIu16 "\n",
+               pasMap->iInstance );
 
             return;
          }
@@ -2761,9 +2785,10 @@ void AD_WritePdMapFromBuffer( const AD_MapType* pasMap,
 
          if( iAdiIndex == AD_INVALID_ADI_INDEX )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_APPLICATION_SPECIFIC, APPL_AD_UNKNOWN_ADI );
-            ABCC_DEBUG_ERR( "Requested ADI could not be found %" PRIu16 "\n",
-                            pasMap->iInstance );
+            ABCC_LOG_WARNING( ABCC_EC_APPLICATION_SPECIFIC,
+               APPL_AD_UNKNOWN_ADI,
+               "Requested ADI could not be found %" PRIu16 "\n",
+               pasMap->iInstance );
 
             return;
          }

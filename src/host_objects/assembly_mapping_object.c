@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -216,14 +216,14 @@ static void InstanceCommand( ABP_MsgType* psNewMessage )
 
          if( ( iNumAdisInAttribute * ABP_BITS32_SIZEOF ) > ABCC_GetMaxMessageSize() )
          {
-            ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_BAD_ASSEMBLY_INSTANCE, (UINT32)ABCC_GetMsgInstance( psNewMessage ) );
-            ABCC_DEBUG_ERR( "Too many ADI's in this assembly mapping instance (%" PRIu16 ") for the current configuration of " \
-                            "ABCC_CFG_MAX_MSG_SIZE (%d) or message channel size too small (%" PRIu16 ")\n" \
-                            "Minimum message size required: %d\n",
-                            ABCC_GetMsgInstance( psNewMessage ),
-                            ABCC_CFG_MAX_MSG_SIZE,
-                            ABCC_GetMessageChannelSize(),
-                            iNumAdisInAttribute * ABP_BITS32_SIZEOF );
+            ABCC_LOG_WARNING( ABCC_EC_BAD_ASSEMBLY_INSTANCE, (UINT32)ABCC_GetMsgInstance( psNewMessage ),
+                              "Too many ADI's in this assembly mapping instance (%" PRIu16 ") for the current configuration of " \
+                              "ABCC_CFG_MAX_MSG_SIZE (%d) or message channel size too small (%" PRIu16 ")\n" \
+                              "Minimum message size required: %d\n",
+                              ABCC_GetMsgInstance( psNewMessage ),
+                              ABCC_CFG_MAX_MSG_SIZE,
+                              ABCC_GetMessageChannelSize(),
+                              iNumAdisInAttribute * ABP_BITS32_SIZEOF );
 
             break;
          }
@@ -726,7 +726,10 @@ void ASM_Init( void )
       if( ( (*ppsInstance)->lDescriptor & ( ABP_ASM_IA_DESC_STATIC_DYNAMIC_MASK ) ) ==
           ABP_ASM_IA_DESC_DYNAMIC )
       {
-         ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_BAD_ASSEMBLY_INSTANCE, (UINT32)iIndex );
+         ABCC_LOG_ERROR( ABCC_EC_BAD_ASSEMBLY_INSTANCE,
+            (UINT32)iIndex,
+            "Assembly instance %" PRIu16 " is defined as dynamic although not supported\"n",
+            iIndex );
       }
 
       ppsInstance++;

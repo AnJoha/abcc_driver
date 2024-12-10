@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -17,13 +17,14 @@
 #ifndef ABCC_H_
 #define ABCC_H_
 
-#include <inttypes.h>
-#include <stdarg.h>
 #include "abcc_config.h"
 #include "abcc_port.h"
 #include "abcc_types.h"
 #include "abp.h"
 #include "abcc_application_data_interface.h"
+#include "abcc_error_codes.h"
+
+#include "abcc_log.h"
 
 /*------------------------------------------------------------------------------
 ** Bit definitions of ABCC events.
@@ -77,105 +78,6 @@ typedef void (*ABCC_SegMsgHandlerDoneFuncType)( void* pxObject );
 **------------------------------------------------------------------------------
 */
 typedef UINT8* (*ABCC_SegMsgHandlerNextBlockFuncType)( void* pxObject, UINT32* plSize );
-
-/*------------------------------------------------------------------------------
-** Driver severity codes indicated by ABCC_CbfDriverError.
-**------------------------------------------------------------------------------
-*/
-typedef enum ABCC_SeverityType
-{
-   /*
-   ** Information about an event that has occurred (e.g., serial message lost).
-   */
-   ABCC_SEV_INFORMATION = 0,
-
-   /*
-   ** An error of minor importance has occurred. The system can recover from
-   ** this error.
-   */
-   ABCC_SEV_WARNING,
-
-   /*
-   ** A fatal event has occurred, the system cannot recover (e.g., driver is
-   ** out of timers).
-   */
-   ABCC_SEV_FATAL,
-
-   /*
-   ** Force the compiler to use a 16-bit variable as enumeration.
-   */
-   ABCC_SEV_SET_ENUM_ANSI_SIZE = 0x7FFF
-
-}
-ABCC_SeverityType;
-
-/*------------------------------------------------------------------------------
-**  Driver error codes indicated by ABCC_CbfDriverError.
-**------------------------------------------------------------------------------
-*/
-typedef enum ABCC_ErrorCodeType
-{
-   ABCC_EC_NO_ERROR,
-   ABCC_EC_INTERNAL_ERROR,
-   ABCC_EC_LINK_CMD_QUEUE_FULL,
-   ABCC_EC_LINK_RESP_QUEUE_FULL,
-   ABCC_EC_OUT_OF_MSG_BUFFERS,
-   ABCC_EC_TRYING_TO_FREE_NULL_POINTER,
-   ABCC_EC_INCORRECT_OPERATING_MODE,
-   ABCC_EC_INCORRECT_STATE,
-   ABCC_EC_RESP_MSG_E_BIT_SET,
-   ABCC_EC_WRPD_SIZE_ERR,
-   ABCC_EC_RDPD_SIZE_ERR,
-   ABCC_EC_RDMSG_SIZE_ERR,
-   ABCC_EC_INVALID_RESP_SOURCE_ID,
-   ABCC_EC_MODULE_NOT_DECTECTED,
-   ABCC_EC_PARAMETER_NOT_VALID,
-   ABCC_EC_MODULE_ID_NOT_SUPPORTED,
-   ABCC_EC_DEFAULT_MAP_ERR,
-   ABCC_EC_ERROR_IN_READ_MAP_CONFIG,
-   ABCC_EC_ERROR_IN_WRITE_MAP_CONFIG,
-   ABCC_EC_INTSTATUS_NOT_SUPPORTED_BY_DRV_IMPL,
-   ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL,
-   ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION,
-   ABCC_EC_WRMSG_SIZE_ERR,
-   ABCC_EC_MSG_BUFFER_CORRUPTED,
-   ABCC_EC_MSG_BUFFER_ALREADY_FREED,
-   ABCC_EC_NO_RESOURCES,
-   ABCC_EC_HW_INIT_FAILED,
-   ABCC_EC_RCV_CMD_SIZE_EXCEEDS_BUFFER,
-   ABCC_EC_RCV_RESP_SIZE_EXCEEDS_BUFFER,
-   ABCC_EC_UNEXPECTED_NULL_PTR,
-   ABCC_EC_OUT_OF_CMD_SEQ_RESOURCES,
-   ABCC_EC_SYS_ADAPTION_ERR,
-   ABCC_EC_APPLICATION_SPECIFIC,
-   ABCC_EC_ERROR_IN_PD_MAP_CONFIG,
-   ABCC_EC_ERROR_RESP_SEGMENTATION,
-   ABCC_EC_BAD_ASSEMBLY_INSTANCE,
-   ABCC_EC_UNSUPPORTED_DATA_TYPE,
-   ABCC_EC_CHECKSUM_MISMATCH,
-   ABCC_EC_SETUP_FAILED,
-   ABCC_EC_SET_ENUM_ANSI_SIZE       = 0x7FFF
-}
-ABCC_ErrorCodeType;
-
-/*------------------------------------------------------------------------------
-**  Error information structure used by ABCC_GetDriverError()
-**------------------------------------------------------------------------------
-*/
-typedef struct ABCC_ErrInfo
-{
-   ABCC_ErrorCodeType   eErrorCode;
-   ABCC_SeverityType    eSeverity;
-   UINT32               lAddInfo;
-#if ABCC_CFG_DEBUG_ERR_ENABLED
-   char*                pacSeverity;
-   char*                pacErrorCode;
-   char*                pacAddInfo;
-   char*                pacFile;
-   INT32                lLine;
-#endif
-}
-ABCC_ErrInfoType;
 
 /*------------------------------------------------------------------------------
 ** ABCC firmware version structure.
@@ -478,46 +380,173 @@ while( 0 )
 **    iOctetOffset - Offset to where data shall be read.
 **------------------------------------------------------------------------------
 */
-void ABCC_SetString( void* pxDst, const char* pcString, UINT16 iNumChar, UINT16 iOctetOffset );
-#define ABCC_SetMsgString( psMsg, pcString, iNumChar, iOctetOffset ) \
-   ABCC_SetString( ABCC_GetMsgDataPtr( psMsg ), pcString, iNumChar, iOctetOffset )
+#define ABCC_LOG_OVERRUN( xSize )                   \
+ABCC_LOG_ERROR( ABCC_EC_MSG_BUFFER_OVERRUN,         \
+   xSize,                                           \
+   "Message buffer overrun prevented %d > %d\n",    \
+   xSize,                                           \
+   ABCC_GetMaxMessageSize() )
 
 void ABCC_GetString( void* pxSrc, char* pcString, UINT16 iNumChar, UINT16 iOctetOffset );
-#define  ABCC_GetMsgString( psMsg, pcString, iNumChar, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_GetMsgString( psMsg, pcString, iNumChar, iOctetOffset )                   \
+   if( ( iOctetOffset + iNumChar ) > ABCC_GetMaxMessageSize() )                        \
+   {                                                                                   \
+      ABCC_LOG_OVERRUN( iOctetOffset + iNumChar );                                     \
+   }                                                                                   \
+   else                                                                                \
+   {                                                                                   \
+      ABCC_GetString( ABCC_GetMsgDataPtr( psMsg ), pcString, iNumChar, iOctetOffset ); \
+   }
+#else
+#define ABCC_GetMsgString( psMsg, pcString, iNumChar, iOctetOffset )                   \
    ABCC_GetString( ABCC_GetMsgDataPtr( psMsg ), pcString, iNumChar, iOctetOffset )
+#endif
+
+void ABCC_SetString( void* pxDst, const char* pcString, UINT16 iNumChar, UINT16 iOctetOffset );
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_SetMsgString( psMsg, pcString, iNumChar, iOctetOffset )                   \
+   if( ( iOctetOffset + iNumChar ) > ABCC_GetMaxMessageSize() )                        \
+   {                                                                                   \
+      ABCC_LOG_OVERRUN( iOctetOffset + iNumChar );                                     \
+   }                                                                                   \
+   else                                                                                \
+   {                                                                                   \
+      ABCC_SetString( ABCC_GetMsgDataPtr( psMsg ), pcString, iNumChar, iOctetOffset ); \
+   }
+#else
+#define ABCC_SetMsgString( psMsg, pcString, iNumChar, iOctetOffset )                   \
+   ABCC_SetString( ABCC_GetMsgDataPtr( psMsg ), pcString, iNumChar, iOctetOffset )
+#endif
 
 void ABCC_GetData8( void* pxSrc, UINT8* pbData, UINT16 iOctetOffset );
-#define ABCC_GetMsgData8( psMsg, pbData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_GetMsgData8( psMsg, pbData, iOctetOffset )                       \
+   if( ( iOctetOffset + ABP_UINT8_SIZEOF ) > ABCC_GetMaxMessageSize() )       \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT8_SIZEOF );                    \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_GetData8( ABCC_GetMsgDataPtr( psMsg ), pbData, iOctetOffset );     \
+   }
+#else
+#define ABCC_GetMsgData8( psMsg, pbData, iOctetOffset )                       \
    ABCC_GetData8( ABCC_GetMsgDataPtr( psMsg ), pbData, iOctetOffset )
+#endif
 
 void ABCC_SetData8( void* pxDst, UINT8 bData, UINT16 iOctetOffset );
-#define ABCC_SetMsgData8( psMsg, bData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_SetMsgData8( psMsg, bData, iOctetOffset )                        \
+   if( ( iOctetOffset + ABP_UINT8_SIZEOF ) > ABCC_GetMaxMessageSize() )       \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT8_SIZEOF );                    \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_SetData8( ABCC_GetMsgDataPtr( psMsg ), bData, iOctetOffset );      \
+   }
+#else
+#define ABCC_SetMsgData8( psMsg, bData, iOctetOffset )                        \
    ABCC_SetData8( ABCC_GetMsgDataPtr( psMsg ), bData, iOctetOffset )
+#endif
 
 void ABCC_GetData16( void* pxSrc, UINT16* piData, UINT16 iOctetOffset );
-#define ABCC_GetMsgData16( psMsg, piData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_GetMsgData16( psMsg, piData, iOctetOffset )                      \
+   if( ( iOctetOffset + ABP_UINT16_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT16_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_GetData16( ABCC_GetMsgDataPtr( psMsg ), piData, iOctetOffset );    \
+   }
+#else
+#define ABCC_GetMsgData16( psMsg, piData, iOctetOffset )                      \
    ABCC_GetData16( ABCC_GetMsgDataPtr( psMsg ), piData, iOctetOffset )
+#endif
 
 void ABCC_SetData16( void* pxDst, UINT16 iData, UINT16 iOctetOffset );
-#define ABCC_SetMsgData16( psMsg, iData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_SetMsgData16( psMsg, iData, iOctetOffset )                       \
+   if( ( iOctetOffset + ABP_UINT16_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT16_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_SetData16( ABCC_GetMsgDataPtr( psMsg ), iData, iOctetOffset );     \
+   }
+#else
+#define ABCC_SetMsgData16( psMsg, iData, iOctetOffset )                       \
    ABCC_SetData16( ABCC_GetMsgDataPtr( psMsg ), iData, iOctetOffset )
+#endif
 
 void ABCC_GetData32( void* pxSrc, UINT32* plData, UINT16 iOctetOffset );
-#define ABCC_GetMsgData32( psMsg, plData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_GetMsgData32( psMsg, plData, iOctetOffset )                      \
+   if( ( iOctetOffset + ABP_UINT32_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT32_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_GetData32( ABCC_GetMsgDataPtr( psMsg ), plData, iOctetOffset );    \
+   }
+#else
+#define ABCC_GetMsgData32( psMsg, plData, iOctetOffset )                      \
    ABCC_GetData32( ABCC_GetMsgDataPtr( psMsg ), plData, iOctetOffset )
+#endif
 
 void ABCC_SetData32( void* pxDst, UINT32 lData, UINT16 iOctetOffset );
-#define ABCC_SetMsgData32( psMsg, lData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_SetMsgData32( psMsg, lData, iOctetOffset )                       \
+   if( ( iOctetOffset + ABP_UINT32_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT32_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_SetData32( ABCC_GetMsgDataPtr( psMsg ), lData, iOctetOffset );     \
+   }
+#else
+#define ABCC_SetMsgData32( psMsg, lData, iOctetOffset )                       \
    ABCC_SetData32( ABCC_GetMsgDataPtr( psMsg ), lData, iOctetOffset )
+#endif
 
 #if ( ABCC_CFG_64BIT_ADI_SUPPORT_ENABLED || ABCC_CFG_DOUBLE_ADI_SUPPORT_ENABLED )
 void ABCC_GetData64( void* pxSrc, UINT64* plData, UINT16 iOctetOffset );
-#define ABCC_GetMsgData64( psMsg, plData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_GetMsgData64( psMsg, plData, iOctetOffset )                      \
+   if( ( iOctetOffset + ABP_UINT64_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT64_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_GetData64( ABCC_GetMsgDataPtr( psMsg ), plData, iOctetOffset );    \
+   }
+#else
+#define ABCC_GetMsgData64( psMsg, plData, iOctetOffset )                      \
    ABCC_GetData64( ABCC_GetMsgDataPtr( psMsg ), plData, iOctetOffset )
+#endif
 
 void ABCC_SetData64( void* pxDst, UINT64 lData, UINT16 iOctetOffset );
-#define ABCC_SetMsgData64( psMsg, lData, iOctetOffset ) \
+#if ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+#define ABCC_SetMsgData64( psMsg, lData, iOctetOffset )                       \
+   if( ( iOctetOffset + ABP_UINT64_SIZEOF ) > ABCC_GetMaxMessageSize() )      \
+   {                                                                          \
+      ABCC_LOG_OVERRUN( iOctetOffset + ABP_UINT64_SIZEOF );                   \
+   }                                                                          \
+   else                                                                       \
+   {                                                                          \
+      ABCC_SetData64( ABCC_GetMsgDataPtr( psMsg ), lData, iOctetOffset );     \
+   }
+#else
+#define ABCC_SetMsgData64( psMsg, lData, iOctetOffset )                       \
    ABCC_SetData64( ABCC_GetMsgDataPtr( psMsg ), lData, iOctetOffset )
+#endif
 #endif
 
 /*------------------------------------------------------------------------------
@@ -536,170 +565,6 @@ void ABCC_SetData64( void* pxDst, UINT64 lData, UINT16 iOctetOffset );
 */
 #define ABCC_MemCpy( pbDestinationPtr, pbSourcePtr, iNbrOfBytes )              \
         ABCC_PORT_MemCpy( pbDestinationPtr, pbSourcePtr, iNbrOfBytes )
-
-/*------------------------------------------------------------------------------
-** Print debug information to output defined by ABCC_PORT_printf()
-**------------------------------------------------------------------------------
-** Arguments:
-**    printf style with a format string followed by a variable number of
-**    arguments.
-**
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#if ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED
-void ABCC_DebugPrintf( const char *fmt, ... );
-#else
-#define ABCC_DebugPrintf( ... ) ABCC_PORT_printf( __VA_ARGS__ )
-#endif
-
-/*------------------------------------------------------------------------------
-** Called when an error is detected. Used by the following support macros:
-** ABCC_ASSERT()
-** ABCC_ASSERT_ERR()
-** ABCC_ERROR()
-**
-** The function will log and report error to application and take necessary
-** action depending on severity. More human readable information will be
-** available if ABCC_CFG_DEBUG_ERR_ENABLED is set to 1 (see ABCC_ErrInfoType)
-** but this will have significant impact on the code size.
-**------------------------------------------------------------------------------
-** Arguments:
-**    eSeverity         - Severity (see ABCC_SeverityType)
-**    eErrorCode        - Error code (see ABCC_ErrorCodeType)
-**    lAddInfo          - Additional info relevant for error
-**    pacSeverity       - Pointer to severity in text format
-**    pacErrorCode      - Pointer to error code in text format
-**    pacAddInfo        - Pointer to additional info in text format
-**    pacLoaction       - Pointer to file and line info in text format
-**
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#if ABCC_CFG_DEBUG_ERR_ENABLED
-void ABCC_ErrorHandler( ABCC_SeverityType eSeverity,
-                        ABCC_ErrorCodeType eErrorCode,
-                        UINT32 lAddInfo,
-                        char* pacSeverity,
-                        char* pacErrorCode,
-                        char* pacAddInfo,
-                        char* pacFile,
-                        INT32 lLine );
-#else
-void ABCC_ErrorHandler( ABCC_SeverityType eSeverity,
-                        ABCC_ErrorCodeType eErrorCode,
-                        UINT32 lAddInfo );
-#endif
-
-/*
-** Create constant strings for file and line information.
-** Used by error macros
-*/
-#define STR( x )        #x
-#define XSTR( x )       STR( x )
-#define FileLine        "File: " __FILE__" (Line:" XSTR( __LINE__ )")"
-
-/*
-** Call ABCC_ErrorHandler with different arguments depending on
-** ABCC_CFG_DEBUG_ERR_ENABLED.
-*/
-#if ABCC_CFG_ERR_REPORTING_ENABLED
-#if ABCC_CFG_DEBUG_ERR_ENABLED
-#define ABCC_ERROR_HANDLER( eSeverity, eErrorCode, lAddInfo )                  \
-        ABCC_ErrorHandler( eSeverity, eErrorCode, lAddInfo,                    \
-                           #eSeverity, #eErrorCode, #lAddInfo, __FILE__, __LINE__ )
-#else
-#define ABCC_ERROR_HANDLER( eSeverity, eErrorCode, lAddInfo )                  \
-        ABCC_ErrorHandler( eSeverity, eErrorCode, lAddInfo )
-#endif
-#else
-#define ABCC_ERROR_HANDLER( eSeverity, eErrorCode, lAddInfo )
-#endif
-
-/*------------------------------------------------------------------------------
-** Assert boolean expression. ABCC_SEV_FATAL will be reported if assertion
-** fails.
-**------------------------------------------------------------------------------
-** Arguments:
-**    x                 - Boolean expression to be asserted.
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#define ABCC_ASSERT( x )                                                       \
-   if( !( x ) )                                                                \
-   {                                                                           \
-      ABCC_ERROR_HANDLER( ABCC_SEV_FATAL, ABCC_EC_INTERNAL_ERROR, 0 );         \
-   }
-
-/*------------------------------------------------------------------------------
-** Assert boolean expression with user defined error information if the
-** assertion fails.
-**------------------------------------------------------------------------------
-** Arguments:
-**    x                 - Boolean expression to be asserted.
-**    eSeverity         - Severity (see ABCC_SeverityType)
-**    eErrorCode        - Error code (see ABCC_ErrorCodeType)
-**    lAddInfo          - Additional info relevant for error
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#define ABCC_ASSERT_ERR( x, eSeverity, eErrorCode, lAddInfo )                  \
-   if( !( x ) )                                                                \
-   {                                                                           \
-      ABCC_ERROR_HANDLER( eSeverity, eErrorCode, lAddInfo );                   \
-   }
-
-/*------------------------------------------------------------------------------
-** Report error with user defined error information.
-**------------------------------------------------------------------------------
-** Arguments:
-**    eSeverity         - Severity (see ABCC_SeverityType)
-**    eErrorCode        - Error code (see ABCC_ErrorCodeType)
-**    lAddInfo          - Additional info relevant for error
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#define ABCC_ERROR( eSeverity, eErrorCode, lAddInfo )                          \
-        ABCC_ERROR_HANDLER( eSeverity, eErrorCode, lAddInfo )
-
-/*------------------------------------------------------------------------------
-** Debug user defined error information. Set ABCC_CFG_DEBUG_ERR_ENABLED to
-** enable debug print.
-**------------------------------------------------------------------------------
-** Arguments:
-**    printf style function
-**
-** Returns:
-**    None
-**------------------------------------------------------------------------------
-*/
-#if ABCC_CFG_DEBUG_ERR_ENABLED
-#define ABCC_DEBUG_ERR( ... ) ABCC_DebugPrintf( __VA_ARGS__ )
-#else
-#define ABCC_DEBUG_ERR( ... )
-#endif
-
-/*------------------------------------------------------------------------------
-** Get the error log for errors that have occurred so far. The maximum
-** number of errors is controlled by ABCC_DRV_CFG_MAX_NUM_ERR_LOG. If the log is
-** full the the last error will be overwritten i.e. the last error in the array
-** will always be the latest error.
-** More human readable information will be available if
-** ABCC_CFG_DEBUG_ERR_ENABLED is set to 1 (see ABCC_ErrInfoType) but this
-** will have significant impact on the code size.
-**------------------------------------------------------------------------------
-** Arguments:
-**    ppacErrInfo       - Pointer to array of ABCC_ErrInfoType
-** Returns:
-**    Number of errors in array.
-**------------------------------------------------------------------------------
-*/
-UINT8 ABCC_GetDriverError( ABCC_ErrInfoType** ppacErrInfo );
 
 /*------------------------------------------------------------------------------
 ** This function is used to measure sync timings.
@@ -1354,20 +1219,26 @@ EXTFUNC void ABCC_CbfSyncIsr( void );
 */
 EXTFUNC void ABCC_CbfUserInitReq( void );
 
+#if ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED
 /*------------------------------------------------------------------------------
-** A message has been received from the ABCC. This is the receive function for
-** all received commands from the ABCC. It could also be used as a response
-** handler if passed on as an argument to the ABCC_SendCmdMsg() function.
+** A message has been received from the ABCC. If enabled all received commands
+** from the ABCC will be passed to this function before handled by the default
+** message handler. This allows the user to implement user specific handling
+** of specific attributes or complete objects.
 ** Regarding callback context, see comment for callback section above.
 **------------------------------------------------------------------------------
 ** Arguments:
-**    psReceivedMsg       - Pointer to received message.
+**    psReceivedMsg - Pointer to received message.
 **
 ** Returns:
-**    None
+**    TRUE -  Message handled by the callback function (this typically means
+**            that a response has been generated and transmitted).
+**    FALSE - Message was not handled by the callback function, let the default
+**            message handler handle the message.
 **------------------------------------------------------------------------------
 */
-EXTFUNC void ABCC_CbfReceiveMsg( ABP_MsgType* psReceivedMsg );
+EXTFUNC BOOL ABCC_CbfReceiveMsg( ABP_MsgType* psReceivedMsg );
+#endif
 
 /*------------------------------------------------------------------------------
 ** This function needs to be implemented by the application. The function
@@ -1463,6 +1334,9 @@ EXTFUNC UINT16 ABCC_CbfAdiMappingReq( const AD_AdiEntryType** const ppsAdiEntry,
 /*------------------------------------------------------------------------------
 ** This function needs to be implemented by the application.
 ** The context of the call is depending on where the error has occured.
+**
+** If the severity level is ABCC_LOG_SEVERITY_FATAL the driver will get stuck
+** in an infinite loop if this function returns.
 **------------------------------------------------------------------------------
 ** Arguments:
 **    eSeverity  - Severity of the event (see ABCC_SeverityType).
@@ -1474,9 +1348,9 @@ EXTFUNC UINT16 ABCC_CbfAdiMappingReq( const AD_AdiEntryType** const ppsAdiEntry,
 **    None
 **------------------------------------------------------------------------------
 */
-EXTFUNC void ABCC_CbfDriverError(  ABCC_SeverityType eSeverity,
-                                   ABCC_ErrorCodeType  iErrorCode,
-                                   UINT32  lAddInfo );
+EXTFUNC void ABCC_CbfDriverError( ABCC_LogSeverityType eSeverity,
+                                  ABCC_ErrorCodeType  iErrorCode,
+                                  UINT32  lAddInfo );
 
 /*------------------------------------------------------------------------------
 ** This callback is invoked if the anybus changes state

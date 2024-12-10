@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -19,9 +19,9 @@
 #include "abcc_types.h"
 #include "abcc.h"
 #include "abcc_memory.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_system_adaptation.h"
 #include "abcc_port.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
 
 /*
 ** Set default value for maximum number of resources
@@ -115,7 +115,7 @@ ABP_MsgType* ABCC_MemAlloc( void )
 
    ABCC_PORT_ExitCritical();
 
-   ABCC_DEBUG_MSG_GENERAL( "Mem: Buffer allocated: 0x%p\n", (void*)pxItem );
+   ABCC_LOG_DEBUG_MEM( "Mem: Buffer allocated: 0x%p\n", (void*)pxItem );
 
    return( pxItem );
 }
@@ -125,22 +125,22 @@ void ABCC_MemFree( ABP_MsgType** pxItem )
    ABCC_MemAllocType* const psBuf = (ABCC_MemAllocType*)(*pxItem);
    ABCC_PORT_UseCritical();
 
-   ABCC_DEBUG_MSG_GENERAL( "Mem: Buffer returned:  0x%p\n", (void*)*pxItem );
+   ABCC_LOG_DEBUG_MEM( "Mem: Buffer returned:  0x%p\n", (void*)*pxItem );
 
    if( psBuf->iMagicCookie != ABCC_MEM_MAGIC_COOKIE )
    {
-      ABCC_ERROR( ABCC_SEV_FATAL,
-                  ABCC_EC_MSG_BUFFER_CORRUPTED,
-                  (UINT32)psBuf );
-      return;
+      ABCC_LOG_FATAL( ABCC_EC_MSG_BUFFER_CORRUPTED,
+         (UINT32)psBuf,
+         "Message buffer corrupted: 0x%p\n",
+         (void*)psBuf );
    }
 
    if( psBuf->iBufferStatus == ABCC_MEM_BUFSTAT_FREE )
    {
-      ABCC_ERROR( ABCC_SEV_FATAL,
-                  ABCC_EC_MSG_BUFFER_ALREADY_FREED,
-                  (UINT32)psBuf );
-      return;
+      ABCC_LOG_FATAL( ABCC_EC_MSG_BUFFER_ALREADY_FREED,
+         (UINT32)psBuf,
+         "Message buffer already freed: 0x%p\n",
+         (void*)psBuf );
    }
 
    ABCC_PORT_EnterCritical();
@@ -159,11 +159,10 @@ ABCC_MemBufferStatusType ABCC_MemGetBufferStatus( ABP_MsgType* psMsg )
 
    if( psBuf->iMagicCookie != ABCC_MEM_MAGIC_COOKIE )
    {
-      ABCC_ERROR( ABCC_SEV_FATAL,
-                  ABCC_EC_MSG_BUFFER_CORRUPTED,
-                  (UINT32)psBuf );
-
-      return( ABCC_MEM_BUFSTAT_UNKNOWN );
+      ABCC_LOG_FATAL( ABCC_EC_MSG_BUFFER_CORRUPTED,
+         (UINT32)psBuf,
+         "Message buffer corrupted: 0x%p\n",
+         (void*)psBuf );
    }
 
    return( (ABCC_MemBufferStatusType)psBuf->iBufferStatus );
@@ -176,10 +175,10 @@ void ABCC_MemSetBufferStatus( ABP_MsgType* psMsg,
 
    if( psBuf->iMagicCookie != ABCC_MEM_MAGIC_COOKIE )
    {
-      ABCC_ERROR( ABCC_SEV_FATAL,
-                  ABCC_EC_MSG_BUFFER_CORRUPTED,
-                  (UINT32)psMsg );
-      return;
+      ABCC_LOG_FATAL( ABCC_EC_MSG_BUFFER_CORRUPTED,
+         (UINT32)psBuf,
+         "Message buffer corrupted: 0x%p\n",
+         (void*)psBuf );
    }
 
    psBuf->iBufferStatus = eStatus;

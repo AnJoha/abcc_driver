@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -18,11 +18,12 @@
 
 #include "abcc_config.h"
 #include "abcc_types.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
+#include "abcc.h"
 #include "abcc_link.h"
 #include "abcc_driver_interface.h"
 #include "abcc_memory.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_system_adaptation.h"
 #include "abcc_timer.h"
 #include "abcc_handler.h"
 #include "abcc_port.h"
@@ -109,7 +110,14 @@ static ABP_MsgType* link_DeQueue( MsgQueueType* psMsgQueue )
       psMsgQueue->bNumInQueue--;
       psMsgQueue->bReadIndex %= psMsgQueue->bQueueSize;
    }
-   ABCC_ASSERT( psMsgQueue->bNumInQueue >= 0 );
+
+   if( psMsgQueue->bNumInQueue < 0 )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED,
+         psMsgQueue->bNumInQueue,
+         "Queue underflow (%" PRId8 ")\n",
+         psMsgQueue->bNumInQueue );
+   }
 
    return( psMsg );
 }
@@ -199,8 +207,8 @@ ABP_MsgType* ABCC_LinkReadMessage( void )
          ABCC_PORT_EnterCritical();
          link_bNumberOfOutstandingCommands--;
          ABCC_PORT_ExitCritical();
-         ABCC_DEBUG_MSG_GENERAL( "Outstanding commands: %" PRIu8 "\n",
-                                 link_bNumberOfOutstandingCommands );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "Outstanding commands: %" PRIu8 "\n",
+                                     link_bNumberOfOutstandingCommands );
       }
    }
    return( psReadMessage.psMsg );
@@ -237,8 +245,8 @@ void ABCC_LinkCheckSendMessage( void )
          */
          link_fDrvWriteMsgLock = TRUE;
          psWriteMessage = link_DeQueue( &link_sRespQueue );
-         ABCC_DEBUG_MSG_EVENT( "Response dequeued", psWriteMessage );
-         ABCC_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMessage, "Response dequeued: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
                link_sRespQueue.bNumInQueue,
                link_sRespQueue.bQueueSize );
       }
@@ -251,8 +259,8 @@ void ABCC_LinkCheckSendMessage( void )
          */
          link_fDrvWriteMsgLock = TRUE;
          psWriteMessage = link_DeQueue( &link_sCmdQueue );
-         ABCC_DEBUG_MSG_EVENT( "Command dequeued", psWriteMessage );
-         ABCC_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMessage, "Command dequeued: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
                link_sCmdQueue.bNumInQueue,
                link_sCmdQueue.bQueueSize );
       }
@@ -286,8 +294,7 @@ void ABCC_LinkCheckSendMessage( void )
          /*
          ** The message was successfully written and can be deallocated now.
          */
-         ABCC_DEBUG_HEXDUMP_MSG( "HEXDUMP_MWR:", psWriteMessage );
-         ABCC_DEBUG_MSG_DATA( "Msg sent", psWriteMessage );
+         ABCC_LOG_DEBUG_MSG_CONTENT( psWriteMessage, "Msg sent\n" );
          link_CheckNotification( psWriteMessage );
          ABCC_LinkFree( &psWriteMessage );
       }
@@ -305,8 +312,7 @@ void ABCC_LinkRunDriverRx( void )
    */
    if( psSentMsg )
    {
-      ABCC_DEBUG_HEXDUMP_MSG( "HEXDUMP_MWR:", psSentMsg );
-      ABCC_DEBUG_MSG_DATA( "Msg sent", psSentMsg );
+      ABCC_LOG_DEBUG_MSG_CONTENT( psSentMsg, "Msg sent\n" );
       link_CheckNotification( psSentMsg );
       ABCC_LinkFree( &psSentMsg );
    }
@@ -326,14 +332,14 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
    BOOL fSendMsg;
    BOOL fMsgWritten;
    ABCC_ErrorCodeType eErrorCode;
-#if ABCC_CFG_ERR_REPORTING_ENABLED
+#if ABCC_CFG_LOG_SEVERITY >= ABCC_LOG_SEVERITY_WARNING_ENABLED
    UINT32 lAddErrorInfo;
 #endif
 
    ABCC_PORT_UseCritical();
 
    eErrorCode = ABCC_EC_NO_ERROR;
-#if ABCC_CFG_ERR_REPORTING_ENABLED
+#if ABCC_CFG_LOG_SEVERITY >= ABCC_LOG_SEVERITY_WARNING_ENABLED
    lAddErrorInfo = 0;
 #endif
    fSendMsg = FALSE;
@@ -341,8 +347,9 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
    if( ABCC_GetMsgDataSize( psWriteMsg ) > link_iMaxMsgSize )
    {
       eErrorCode = ABCC_EC_WRMSG_SIZE_ERR;
-      ABCC_ERROR( ABCC_SEV_WARNING, eErrorCode,
-                  iLeTOi( psWriteMsg->sHeader.iDataSize ) );
+      ABCC_LOG_WARNING( eErrorCode, iLeTOi( psWriteMsg->sHeader.iDataSize ),
+                        "Message size exceeds max size: %" PRIu16 "\n",
+                        iLeTOi( psWriteMsg->sHeader.iDataSize ) );
       return( eErrorCode );
    }
 
@@ -365,19 +372,19 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
       }
       else if( link_EnQueue( &link_sRespQueue, psWriteMsg ) )
       {
-         ABCC_DEBUG_MSG_EVENT( "Response msg queued ", psWriteMsg );
-         ABCC_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMsg, "Response msg queued: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
                link_sRespQueue.bNumInQueue,
                link_sRespQueue.bQueueSize );
       }
       else
       {
-         ABCC_DEBUG_MSG_EVENT( "Response queue full", psWriteMsg );
-         ABCC_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMsg, "Response queue full: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "RespQ status: %" PRIu8 "(%" PRIu8 ")\n",
                link_sRespQueue.bNumInQueue,
                link_sRespQueue.bQueueSize );
          eErrorCode = ABCC_EC_LINK_RESP_QUEUE_FULL;
-#if ABCC_CFG_ERR_REPORTING_ENABLED
+#if ABCC_CFG_LOG_SEVERITY >= ABCC_LOG_SEVERITY_WARNING_ENABLED
          lAddErrorInfo = (UINT32)psWriteMsg;
 #endif
       }
@@ -399,21 +406,21 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
       }
       else if( link_EnQueue( &link_sCmdQueue, psWriteMsg ) )
       {
-         ABCC_DEBUG_MSG_EVENT( "Command queued", psWriteMsg );
-         ABCC_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
-               link_sCmdQueue.bNumInQueue,
-               link_sCmdQueue.bQueueSize );
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMsg, "Command queued: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
+            link_sCmdQueue.bNumInQueue,
+            link_sCmdQueue.bQueueSize );
 
          link_bNumberOfOutstandingCommands++;
-         ABCC_DEBUG_MSG_GENERAL( "Outstanding commands: %" PRIu8 "\n",
-                                 link_bNumberOfOutstandingCommands );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "Outstanding commands: %" PRIu8 "\n",
+            link_bNumberOfOutstandingCommands );
       }
       else
       {
-         ABCC_DEBUG_MSG_EVENT( "Command queue full", psWriteMsg );
-         ABCC_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
-               link_sCmdQueue.bNumInQueue,
-               link_sCmdQueue.bQueueSize );
+         ABCC_LOG_DEBUG_MSG_EVENT( psWriteMsg, "Command queue full: " );
+         ABCC_LOG_DEBUG_MSG_GENERAL( "CmdQ status: %" PRIu8 "(%" PRIu8 ")\n",
+            link_sCmdQueue.bNumInQueue,
+            link_sCmdQueue.bQueueSize );
          eErrorCode = ABCC_EC_LINK_CMD_QUEUE_FULL;
       }
    }
@@ -459,8 +466,7 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
          /*
          ** The message was successfully written and can be deallocated now.
          */
-         ABCC_DEBUG_HEXDUMP_MSG( "HEXDUMP_MWR:", psWriteMsg );
-         ABCC_DEBUG_MSG_DATA( "Msg sent", psWriteMsg );
+         ABCC_LOG_DEBUG_MSG_CONTENT( psWriteMsg, "Msg sent\n" );
          link_CheckNotification( psWriteMsg );
          ABCC_LinkFree( &psWriteMsg );
       }
@@ -468,7 +474,11 @@ ABCC_ErrorCodeType ABCC_LinkWriteMessage( ABP_MsgType* psWriteMsg )
 
    if( eErrorCode != ABCC_EC_NO_ERROR )
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, eErrorCode, lAddErrorInfo );
+      ABCC_LOG_WARNING( eErrorCode,
+         lAddErrorInfo,
+         "Failed to send message (Error code: %d, additional info: %" PRIu32 ")\n",
+         eErrorCode,
+         lAddErrorInfo );
    }
 
    return( eErrorCode );
@@ -482,7 +492,14 @@ ABCC_ErrorCodeType ABCC_LinkWrMsgWithNotification( ABP_MsgType* psWriteMsg,
    /*
    ** Save callback function to call when message is successfully sent.
    */
-   ABCC_ASSERT( pnMsgSentHandler == NULL );
+   if( pnMsgSentHandler != NULL )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED,
+         (UINT32)pnMsgSentHandler,
+         "Message sent handler not NULL (%" PRIx32 ")\n",
+         (UINT32)pnMsgSentHandler );
+   }
+
    pnMsgSentHandler = pnHandler;
    link_psNotifyMsg = psWriteMsg;
 
@@ -493,7 +510,12 @@ ABCC_ErrorCodeType ABCC_LinkWrMsgWithNotification( ABP_MsgType* psWriteMsg,
 
 void ABCC_LinkFree( ABP_MsgType** ppsBuffer )
 {
-   ABCC_ASSERT_ERR( *ppsBuffer != 0, ABCC_SEV_WARNING, ABCC_EC_TRYING_TO_FREE_NULL_POINTER, 0 );
+   if( !*ppsBuffer )
+   {
+      ABCC_LOG_WARNING( ABCC_EC_TRYING_TO_FREE_NULL_POINTER,
+         0,
+         "ABCC_LinkFree called with NULL pointer\n" );
+   }
 
    ABCC_MemFree( ppsBuffer );
 }

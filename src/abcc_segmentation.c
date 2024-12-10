@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -19,7 +19,7 @@
 #include "abcc_types.h"
 #include "abp.h"
 #include "abcc.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
 #include "abcc_port.h"
 #include "abcc_segmentation.h"
 
@@ -340,9 +340,7 @@ EXTFUNC ABCC_ErrorCodeType ABCC_StartServerRespSegmentationSession( const ABP_Ms
 
    if( psSegSession == NULL )
    {
-      ABCC_ERROR( ABCC_SEV_WARNING,
-                  ABCC_EC_NO_RESOURCES,
-                  0 );
+      ABCC_LOG_WARNING( ABCC_EC_NO_RESOURCES, 0, "No segmentation session resources available\n" );
 
       return( ABCC_EC_NO_RESOURCES );
    }
@@ -368,9 +366,9 @@ EXTFUNC ABCC_ErrorCodeType ABCC_StartServerRespSegmentationSession( const ABP_Ms
    {
       FreeSegmentationSession( psSegSession );
 
-      ABCC_ERROR( ABCC_SEV_WARNING,
-                  ABCC_EC_NO_RESOURCES,
-                  0 );
+      ABCC_LOG_WARNING( ABCC_EC_NO_RESOURCES,
+         0,
+         "No message buffer available for segmentation session\n" );
 
       return( ABCC_EC_NO_RESOURCES );
    }
@@ -402,13 +400,11 @@ BOOL ABCC_HandleSegmentAck( ABP_MsgType* psMsg )
 
    if( ABCC_GetMsgCmdExt1( psMsg ) & ABP_MSG_CMDEXT1_SEG_ABORT )
    {
-#if ABCC_CFG_ERR_REPORTING_ENABLED
-      UINT8 bSourceId = ABCC_GetMsgSourceId( psMsg );
+      ABCC_LOG_WARNING( ABCC_EC_ERROR_RESP_SEGMENTATION,
+            ABCC_GetMsgSourceId( psMsg ),
+            "Segmentation session aborted by ABCC (source ID: %" PRIu8 "\n",
+            ABCC_GetMsgSourceId( psMsg ) );
 
-      ABCC_ERROR( ABCC_SEV_WARNING,
-                  ABCC_EC_ERROR_RESP_SEGMENTATION,
-                  bSourceId );
-#endif
       /*
       ** Abort segmentation by clearing number of bytes left and clear callback pointer
       */

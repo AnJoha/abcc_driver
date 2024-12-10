@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -16,7 +16,8 @@
 */
 
 #include "abcc_timer.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
+#include "abcc.h"
 #include "abcc_port.h"
 
 /*
@@ -80,7 +81,13 @@ BOOL ABCC_TimerStart( ABCC_TimerHandle xHandle,
    BOOL fTmo;
    ABCC_PORT_TIMER_UseCritical();
 
-   ABCC_ASSERT( sTimer[ xHandle ].pnHandleTimeout );
+   if( !sTimer[ xHandle ].pnHandleTimeout )
+   {
+      ABCC_LOG_ERROR( ABCC_EC_UNEXPECTED_NULL_PTR,
+         0,
+         "Timer timeout handle not registered\n" );
+      return( FALSE );
+   }
 
    ABCC_PORT_TIMER_EnterCritical();
    fTmo = sTimer[ xHandle ].fTmoOccured;

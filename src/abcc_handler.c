@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -24,13 +24,14 @@
 #include "abcc_command_sequencer.h"
 #include "abcc_command_sequencer_interface.h"
 #include "abcc_memory.h"
-#include "abcc_hardware_abstraction.h"
-#include "abcc_debug_error.h"
+#include "abcc_system_adaptation.h"
+#include "abcc_log.h"
 #include "abcc_handler.h"
 #include "abcc_timer.h"
 #include "abcc_setup.h"
 #include "abcc_port.h"
 #include "abcc_segmentation.h"
+#include "abcc_command_handler.h"
 
 #if ABCC_CFG_DRV_SPI_ENABLED
 #include "spi/abcc_driver_spi_interface.h"
@@ -117,6 +118,12 @@ static volatile UINT8 abcc_bAnbState = 0xff;
 
 static ABCC_MainStateType abcc_eMainState = ABCC_DRV_INIT;
 
+/*
+** Last error.
+*/
+static ABCC_ErrorCodeType abcc_eLastErrorCode;
+static UINT32 abcc_lLastAdditionalInfo;
+
 #if ABCC_CFG_DRV_ASSUME_FW_UPDATE_ENABLED
 static BOOL abcc_fFwUpdateAttempted;
 #endif
@@ -188,7 +195,7 @@ static void TriggerWrPdUpdateNow( void )
 
 static void SetMainState( ABCC_MainStateType eState )
 {
-#if ABCC_CFG_DEBUG_EVENT_ENABLED
+#if ABCC_CFG_LOG_SEVERITY >= ABCC_LOG_SEVERITY_INFO_ENABLED
    static const char* pacMainStateToText[] =
    {
       "ABCC_DRV_INIT",
@@ -199,7 +206,7 @@ static void SetMainState( ABCC_MainStateType eState )
       "ABCC_DRV_RUNNING"
    };
 #endif
-   DEBUG_EVENT( "Set driver main state: %s (%d)\n", pacMainStateToText[ eState ], eState );
+   ABCC_LOG_INFO( "Driver main state: %s\n", pacMainStateToText[ eState ] );
    abcc_eMainState = eState;
 }
 
@@ -280,8 +287,11 @@ void ABCC_SetReadyForCommunication( void )
    abcc_fReadyForCommunication = TRUE;
 }
 
-void ABCC_SetMainStateError( void )
+void ABCC_SetError( ABCC_ErrorCodeType eErrorCode, UINT32 lAdditionalInfo )
 {
+   abcc_eLastErrorCode = eErrorCode;
+   abcc_lLastAdditionalInfo = lAdditionalInfo;
+
    SetMainState( ABCC_DRV_ERROR );
 }
 
@@ -309,9 +319,7 @@ void ABCC_TriggerAnbStatusUpdate( void )
    if( bAnbState != abcc_bAnbState )
    {
       abcc_bAnbState = bAnbState;
-#if ABCC_CFG_DEBUG_HEXDUMP_MSG_ENABLED
-      ABCC_DebugPrintf( "HEXDUMP_STATE:%02x\n", abcc_bAnbState );
-#endif
+      ABCC_LOG_DEBUG_MSG_GENERAL( "HEXDUMP_STATE:%02x\n", abcc_bAnbState );
       ABCC_CbfAnbStateChanged( (ABP_AnbStateType)bAnbState );
    }
 }
@@ -362,7 +370,10 @@ ABCC_ErrorCodeType ABCC_StartDriver( UINT32 lMaxStartupTimeMs )
    if( bModuleId != ABP_MODULE_ID_ACTIVE_ABCC40 )
 #endif
    {
-      ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_MODULE_ID_NOT_SUPPORTED, (UINT32)bModuleId );
+      ABCC_LOG_ERROR( ABCC_EC_MODULE_ID_NOT_SUPPORTED,
+         bModuleId,
+         "Module ID not supported: 0x%" PRIx8 "\n",
+         bModuleId );
 
       return( ABCC_EC_MODULE_ID_NOT_SUPPORTED );
    }
@@ -413,43 +424,36 @@ ABCC_ErrorCodeType ABCC_StartDriver( UINT32 lMaxStartupTimeMs )
 #if ABCC_CFG_DRV_SPI_ENABLED
    case ABP_OP_MODE_SPI:
 
-      if( bModuleId == ABP_MODULE_ID_ACTIVE_ABCC40 )
-      {
-         ABCC_ISR                   = &ABCC_SpiISR;
-         ABCC_RunDriver             = &ABCC_SpiRunDriver;
-         ABCC_TriggerWrPdUpdate     = &TriggerWrPdUpdateLater;
+      ABCC_ISR                   = &ABCC_SpiISR;
+      ABCC_RunDriver             = &ABCC_SpiRunDriver;
+      ABCC_TriggerWrPdUpdate     = &TriggerWrPdUpdateLater;
 
-         pnABCC_DrvInit               = &ABCC_DrvSpiInit;
-         pnABCC_DrvISR                = NULL;
-         pnABCC_DrvRunDriverTx        = &ABCC_DrvSpiRunDriverTx;
-         pnABCC_DrvRunDriverRx        = &ABCC_DrvSpiRunDriverRx;
-         pnABCC_DrvPrepareWriteMessage = NULL;
-         pnABCC_DrvWriteMessage       = &ABCC_DrvSpiWriteMessage;
-         pnABCC_DrvWriteProcessData   = &ABCC_DrvSpiWriteProcessData;
-         pnABCC_DrvISReadyForWrPd     = &ABCC_DrvSpiIsReadyForWrPd;
-         pnABCC_DrvISReadyForWriteMessage = &ABCC_DrvSpiIsReadyForWriteMessage;
-         pnABCC_DrvISReadyForCmd      = &ABCC_DrvSpiIsReadyForCmd;
-         pnABCC_DrvSetNbrOfCmds       = &ABCC_DrvSpiSetNbrOfCmds;
-         pnABCC_DrvSetAppStatus       = &ABCC_DrvSpiSetAppStatus;
-         pnABCC_DrvSetPdSize          = &ABCC_DrvSpiSetPdSize;
-         pnABCC_DrvSetIntMask         = &ABCC_DrvSpiSetIntMask;
-         pnABCC_DrvGetWrPdBuffer      = &ABCC_DrvSpiGetWrPdBuffer;
-         pnABCC_DrvGetModCap          = &ABCC_DrvSpiGetModCap;
-         pnABCC_DrvGetLedStatus       = &ABCC_DrvSpiGetLedStatus;
-         pnABCC_DrvGetIntStatus       = &ABCC_DrvSpiGetIntStatus;
-         pnABCC_DrvGetAnybusState     = &ABCC_DrvSpiGetAnybusState;
-         pnABCC_DrvReadProcessData    = &ABCC_DrvSpiReadProcessData;
-         pnABCC_DrvReadMessage        = &ABCC_DrvSpiReadMessage;
-         pnABCC_DrvIsSupervised       = &ABCC_DrvSpiIsSupervised;
-         pnABCC_DrvGetAnbStatus       = &ABCC_DrvSpiGetAnbStatus;
+      pnABCC_DrvInit               = &ABCC_DrvSpiInit;
+      pnABCC_DrvISR                = NULL;
+      pnABCC_DrvRunDriverTx        = &ABCC_DrvSpiRunDriverTx;
+      pnABCC_DrvRunDriverRx        = &ABCC_DrvSpiRunDriverRx;
+      pnABCC_DrvPrepareWriteMessage = NULL;
+      pnABCC_DrvWriteMessage       = &ABCC_DrvSpiWriteMessage;
+      pnABCC_DrvWriteProcessData   = &ABCC_DrvSpiWriteProcessData;
+      pnABCC_DrvISReadyForWrPd     = &ABCC_DrvSpiIsReadyForWrPd;
+      pnABCC_DrvISReadyForWriteMessage = &ABCC_DrvSpiIsReadyForWriteMessage;
+      pnABCC_DrvISReadyForCmd      = &ABCC_DrvSpiIsReadyForCmd;
+      pnABCC_DrvSetNbrOfCmds       = &ABCC_DrvSpiSetNbrOfCmds;
+      pnABCC_DrvSetAppStatus       = &ABCC_DrvSpiSetAppStatus;
+      pnABCC_DrvSetPdSize          = &ABCC_DrvSpiSetPdSize;
+      pnABCC_DrvSetIntMask         = &ABCC_DrvSpiSetIntMask;
+      pnABCC_DrvGetWrPdBuffer      = &ABCC_DrvSpiGetWrPdBuffer;
+      pnABCC_DrvGetModCap          = &ABCC_DrvSpiGetModCap;
+      pnABCC_DrvGetLedStatus       = &ABCC_DrvSpiGetLedStatus;
+      pnABCC_DrvGetIntStatus       = &ABCC_DrvSpiGetIntStatus;
+      pnABCC_DrvGetAnybusState     = &ABCC_DrvSpiGetAnybusState;
+      pnABCC_DrvReadProcessData    = &ABCC_DrvSpiReadProcessData;
+      pnABCC_DrvReadMessage        = &ABCC_DrvSpiReadMessage;
+      pnABCC_DrvIsSupervised       = &ABCC_DrvSpiIsSupervised;
+      pnABCC_DrvGetAnbStatus       = &ABCC_DrvSpiGetAnbStatus;
 
-         ABCC_iInterruptEnableMask = ABCC_CFG_INT_ENABLE_MASK_SPI;
-         abcc_iMessageChannelSize = ABP_MAX_MSG_DATA_BYTES;
-      }
-      else
-      {
-         ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)abcc_bOpmode );
-      }
+      ABCC_iInterruptEnableMask = ABCC_CFG_INT_ENABLE_MASK_SPI;
+      abcc_iMessageChannelSize = ABP_MAX_MSG_DATA_BYTES;
 
       break;
 #endif /* End of #if ABCC_CFG_DRV_SPI_ENABLED */
@@ -500,8 +504,7 @@ ABCC_ErrorCodeType ABCC_StartDriver( UINT32 lMaxStartupTimeMs )
       break;
 #endif /* End of #if ABCC_CFG_DRV_PARALLEL_ENABLED */
    default:
-
-      ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)abcc_bOpmode );
+      ABCC_LOG_ERROR( ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)abcc_bOpmode, "Incorrect operating mode: %" PRIu8 "\n", abcc_bOpmode );
 
       return( ABCC_EC_INCORRECT_OPERATING_MODE );
    }
@@ -509,7 +512,7 @@ ABCC_ErrorCodeType ABCC_StartDriver( UINT32 lMaxStartupTimeMs )
    if( !( ( abcc_eMainState == ABCC_DRV_INIT ) ||
           ( abcc_eMainState == ABCC_DRV_SHUTDOWN ) ) )
    {
-      ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_INCORRECT_STATE, (UINT32)abcc_eMainState );
+      ABCC_LOG_ERROR( ABCC_EC_INCORRECT_STATE, (UINT32)abcc_eMainState, "Incorrect state: %d\n", abcc_eMainState );
       SetMainState( ABCC_DRV_ERROR );
 
       return( ABCC_EC_INCORRECT_STATE );
@@ -538,7 +541,7 @@ ABCC_ErrorCodeType ABCC_StartDriver( UINT32 lMaxStartupTimeMs )
 
    if( !ABCC_ModuleDetect() )
    {
-      ABCC_ERROR(ABCC_SEV_WARNING, ABCC_EC_MODULE_NOT_DECTECTED, 0);
+      ABCC_LOG_ERROR( ABCC_EC_MODULE_NOT_DECTECTED, 0, "Module not detected\n" );
 
       return( ABCC_EC_MODULE_NOT_DECTECTED );
    }
@@ -693,8 +696,7 @@ void ABCC_TriggerReceiveMessage ( void )
       return;
    }
 
-   ABCC_DEBUG_HEXDUMP_MSG( "HEXDUMP_MRD:", sRdMsg.psMsg );
-   ABCC_DEBUG_MSG_DATA( "Msg received", sRdMsg.psMsg );
+   ABCC_LOG_DEBUG_MSG_CONTENT( sRdMsg.psMsg, "Msg received\n" );
    /*
    ** Set buffer status to indicate that the buffer is handed over to the
    ** application.
@@ -711,9 +713,10 @@ void ABCC_TriggerReceiveMessage ( void )
       */
       if( ABCC_GetMsgDataSize( sRdMsg.psMsg ) > ABCC_CFG_MAX_MSG_SIZE )
       {
-         ABCC_ERROR( ABCC_SEV_INFORMATION,
-                     ABCC_EC_RCV_CMD_SIZE_EXCEEDS_BUFFER,
-                     (UINT32)ABCC_GetMsgDataSize( sRdMsg.psMsg ) );
+         ABCC_LOG_WARNING( ABCC_EC_RCV_CMD_SIZE_EXCEEDS_BUFFER,
+            (UINT32)ABCC_GetMsgDataSize( sRdMsg.psMsg ),
+            "Received command size exceeds buffer size: %" PRIu16 "\n",
+            ABCC_GetMsgDataSize( sRdMsg.psMsg ) );
          ABP_SetMsgErrorResponse( sRdMsg.psMsg, 1, ABP_ERR_NO_RESOURCES );
          ABCC_SendRespMsg( sRdMsg.psMsg );
       }
@@ -728,7 +731,7 @@ void ABCC_TriggerReceiveMessage ( void )
             /*
             ** The message is a new command, let the application respond.
             */
-            ABCC_CbfReceiveMsg( sRdMsg.psMsg );
+            ABCC_HandleCommandMessage( sRdMsg.psMsg );
          }
       }
    }
@@ -740,9 +743,10 @@ void ABCC_TriggerReceiveMessage ( void )
       if( ABCC_GetMsgDataSize( sRdMsg.psMsg ) > ABCC_CFG_MAX_MSG_SIZE )
       {
          (void)ABCC_LinkGetMsgHandler( ABCC_GetLowAddrOct( sRdMsg.psMsg16->sHeader.iSourceIdDestObj ) );
-         ABCC_ERROR( ABCC_SEV_INFORMATION,
-                     ABCC_EC_RCV_RESP_SIZE_EXCEEDS_BUFFER,
-                     (UINT32)ABCC_GetMsgDataSize( sRdMsg.psMsg ) );
+         ABCC_LOG_WARNING( ABCC_EC_RCV_RESP_SIZE_EXCEEDS_BUFFER,
+            (UINT32)ABCC_GetMsgDataSize( sRdMsg.psMsg ),
+            "Received response size exceeds buffer size: %" PRIu16 "\n",
+            ABCC_GetMsgDataSize( sRdMsg.psMsg ) );
       }
       else
       {
@@ -751,13 +755,12 @@ void ABCC_TriggerReceiveMessage ( void )
 
          if( pnMsgHandler )
          {
-            ABCC_DEBUG_MSG_EVENT( "Routing response to registered response handler", sRdMsg.psMsg );
+            ABCC_LOG_DEBUG_MSG_EVENT( sRdMsg.psMsg, "Routing response to registered response handler: " );
             pnMsgHandler( sRdMsg.psMsg );
          }
          else
          {
-            ABCC_DEBUG_MSG_EVENT( "No response handler found", sRdMsg.psMsg );
-            ABCC_CbfReceiveMsg( sRdMsg.psMsg );
+            ABCC_LOG_DEBUG_MSG_EVENT( sRdMsg.psMsg, "No response handler found" );
          }
       }
    }
@@ -802,7 +805,7 @@ ABCC_ErrorCodeType ABCC_SendCmdMsg( ABP_MsgType*  psCmdMsg, ABCC_MsgHandlerFuncT
       /*
       ** Report error
       */
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_NO_RESOURCES, 0 );
+      ABCC_LOG_WARNING( ABCC_EC_NO_RESOURCES, 0, "No resources available to map response handler\n" );
    }
 
    return( eResult );
@@ -842,14 +845,14 @@ void ABCC_TakeMsgBufferOwnership( ABP_MsgType* psMsg )
 
 void ABCC_SetPdSize( const UINT16 iReadPdSize, const UINT16 iWritePdSize )
 {
-   DEBUG_EVENT( "New process data sizes RdPd %" PRIu16 " WrPd %" PRIu16 "\n", iReadPdSize, iWritePdSize );
+   ABCC_LOG_INFO( "New process data sizes RdPd %" PRIu16 " WrPd %" PRIu16 "\n", iReadPdSize, iWritePdSize );
    pnABCC_DrvSetPdSize( iReadPdSize, iWritePdSize );
 }
 
 
 void ABCC_HWReset( void )
 {
-   DEBUG_EVENT( "HW Reset\n" );
+   ABCC_LOG_INFO( "HW Reset\n" );
    ABCC_ShutdownDriver();
    ABCC_SYS_HWReset();
 }
@@ -857,7 +860,7 @@ void ABCC_HWReset( void )
 
 void ABCC_ShutdownDriver( void )
 {
-   DEBUG_EVENT( "Enter Shutdown state\n" );
+   ABCC_LOG_INFO( "Enter Shutdown state\n" );
 
 #if ( ABCC_CFG_SYNC_ENABLED && ABCC_CFG_USE_ABCC_SYNC_SIGNAL_ENABLED )
    ABCC_SYS_SyncInterruptDisable();
@@ -903,9 +906,7 @@ BOOL ABCC_IsSupervised( void )
 
 void ABCC_HWReleaseReset( void )
 {
-#if ( ABCC_CFG_DEBUG_HEXDUMP_MSG_ENABLED || ABCC_CFG_DEBUG_HEXDUMP_SPI_ENABLED || ABCC_CFG_DEBUG_HEXDUMP_UART_ENABLED )
-   ABCC_DebugPrintf( "HEXDUMP_RESET:\n" );
-#endif
+   ABCC_LOG_INFO( "Release hardware reset\n" );
    ABCC_SYS_HWReleaseReset();
 }
 
@@ -1163,7 +1164,7 @@ UINT8 ABCC_GetDataTypeSize( UINT8 bDataType )
       break;
 
    default:
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)bDataType );
+      ABCC_LOG_WARNING( ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)bDataType, "Unsupported data type: %" PRIu8 "\n", bDataType );
       bSize = 0;
       break;
    }

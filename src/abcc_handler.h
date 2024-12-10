@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -109,7 +109,7 @@ EXTFUNC void ABCC_SetReadyForCommunication( void );
 **       None.
 **------------------------------------------------------------------------------
 */
-EXTFUNC void ABCC_SetMainStateError( void );
+EXTFUNC void ABCC_SetError( ABCC_ErrorCodeType eErrorCode, UINT32 lAdditionalInfo );
 
 /*------------------------------------------------------------------------------
 ** Gets currents state

@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -24,7 +24,7 @@
 /*------------------------------------------------------------------------------
 ** Macro is used by driver for debug prints such as events or error debug
 ** information. If not defined the driver will be silent.
-** Note! Don't use this macro directly for printing, use ABCC_DebugPrintf()
+** Note! Don't use this macro directly for printing, use ABCC_LOG_*()
 **       instead as it may add additional information based on the
 **       configuration.
 ** Note! The compiler need to be C99 compliant to support VA_ARGS in macro.
@@ -51,10 +51,9 @@
 **    None
 **------------------------------------------------------------------------------
 */
-#if ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED
 #ifndef ABCC_PORT_vprintf
-#error "ABCC_PORT_vprintf must be ported if ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED\
- is enabled."
+#if ABCC_CFG_LOG_STRINGS_ENABLED
+#error "ABCC_PORT_vprintf() must be ported if ABCC_CFG_LOG_STRINGS_ENABLED is 1."
 #endif
 #endif
 

@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -20,13 +20,14 @@
 #if ABCC_CFG_DRV_PARALLEL_ENABLED
 
 #include "abcc_types.h"
-#include "../abcc_debug_error.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc.h"
+#include "abcc_log.h"
+#include "abcc_system_adaptation.h"
 #include "../abcc_timer.h"
 #include "../abcc_driver_interface.h"
 #include "../abcc_memory.h"
 #include "abp.h"
-#include "abcc_hardware_abstraction_parallel.h"
+#include "abcc_system_adaptation_parallel.h"
 #include "../abcc_handler.h"
 #include "abcc_port.h"
 
@@ -101,11 +102,7 @@ static const UINT16 iIntStatusAdrOffset =    ABP_INTSTATUS_ADR_OFFSET;
 
 void ABCC_DrvParInit( UINT8 bOpmode )
 {
-   /*
-   ** Initialize privates and states.
-   */
-
-   ABCC_ASSERT_ERR( ( bOpmode == 7 ) || ( bOpmode == 8 ), ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)bOpmode );
+   (void)bOpmode;
 
    par_drv_iSizeOfReadPd  = 0;
    par_drv_iSizeOfWritePd = 0;
@@ -151,7 +148,9 @@ UINT16 ABCC_DrvParISR( void )
 #else
 UINT16 ABCC_DrvParISR( void )
 {
-   ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_INTERNAL_ERROR, 0 );
+   ABCC_LOG_WARNING( ABCC_EC_INTERNAL_ERROR,
+      0,
+      "ABCC_DrvParISR() called when interrupts are disabled\n" );
    return( 0 );
 }
 #endif
@@ -167,7 +166,10 @@ ABP_MsgType* ABCC_DrvParRunDriverRx( void )
 
 void ABCC_DrvParPrepareWriteMessage( ABP_MsgType* psWriteMsg )
 {
-   ABCC_ASSERT_ERR( psWriteMsg, ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR, (UINT32)psWriteMsg );
+   if( !psWriteMsg )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR, 0, "Unexpected NULL pointer\n" );
+   }
 #ifdef MSG_TIMING
    /*Toggle led for timing measurement*/
    GPIO_OUT0  = 0;
@@ -180,7 +182,10 @@ BOOL ABCC_DrvParWriteMessage( ABP_MsgType* psWriteMsg )
    UINT16 iBufControlWriteFlags;
    ABCC_MsgType uMsg;
    iBufControlWriteFlags = 0;
-   ABCC_ASSERT_ERR( psWriteMsg, ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR, (UINT32)psWriteMsg );
+   if( !psWriteMsg )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR, 0, "Unexpected NULL pointer\n" );
+   }
    uMsg.psMsg = psWriteMsg;
 
    iBufControlWriteFlags |= iWRMSGFlag;
@@ -373,7 +378,9 @@ ABP_MsgType* ABCC_DrvParReadMessage( void )
 
       if( par_drv_uReadMessageData.psMsg == NULL )
       {
-         ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_OUT_OF_MSG_BUFFERS, 0 );
+         ABCC_LOG_WARNING( ABCC_EC_OUT_OF_MSG_BUFFERS,
+            0,
+            "Out of message buffers when attempting to read a message\n" );
          return( NULL );
       }
 

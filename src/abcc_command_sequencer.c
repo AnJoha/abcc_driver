@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -20,7 +20,7 @@
 #include "abcc.h"
 #include "abcc_command_sequencer_interface.h"
 #include "abcc_software_port.h"
-#include "abcc_debug_error.h"
+#include "abcc_log.h"
 #include "abcc_link.h"
 #include "abcc_memory.h"
 
@@ -141,7 +141,7 @@ static void ResetCmdSeqEntry( CmdSeqEntryType* psEntry, BOOL fInitial )
          */
          if( !CheckAndSetState( psEntry, CMD_SEQ_STATE_ANY, CMD_SEQ_STATE_NOT_STARTED ) )
          {
-            ABCC_ASSERT( FALSE );
+            ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED, 0, "Failed to set command sequence state\n" );
          }
       }
 
@@ -292,7 +292,7 @@ static void DoAbort( CmdSeqEntryType* psEntry )
       ** State not allowed. See header file documentation for
       ** ABCC_CmdSeqAbort()
       */
-      ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_INCORRECT_STATE, psEntry->eState );
+      ABCC_LOG_FATAL( ABCC_EC_INCORRECT_STATE, psEntry->eState, "Incorrect state (%d)\n", psEntry->eState );
    }
    else if( psEntry->eState != CMD_SEQ_STATE_NOT_STARTED )
    {
@@ -306,10 +306,8 @@ static void DoAbort( CmdSeqEntryType* psEntry )
          fFreeSourceId = TRUE;
       }
 
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-      ABCC_DebugPrintf( "CmdSeq(%p)->Aborted\n",
+      ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Aborted\n",
          (void*)psEntry->pasCmdSeq);
-#endif
 
       pnSeqDone = psEntry->pnSeqDone;
       pxUserData = psEntry->pxUserData;
@@ -369,11 +367,10 @@ static void HandleResponse( ABP_MsgType* psMsg )
             /*
             ** Pass the response message to the application.
             */
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-            ABCC_DebugPrintf( "CmdSeq(%p)->%s()\n",
+            ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->%s()\n",
                (void*)psEntry->pasCmdSeq,
                psEntry->pasCmdSeq[ psEntry->bCurrSeqIndex ].pcRespName );
-#endif
+
             eStatus = psEntry->pasCmdSeq[ psEntry->bCurrSeqIndex ].pnRespHandler( psMsg, psEntry->pxUserData );
 
             if( eStatus == ABCC_CMDSEQ_RESP_EXEC_NEXT )
@@ -385,10 +382,8 @@ static void HandleResponse( ABP_MsgType* psMsg )
             }
             else if( eStatus == ABCC_CMDSEQ_RESP_ABORT )
             {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-               ABCC_DebugPrintf( "CmdSeq(%p)->Aborted\n",
+               ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Aborted\n",
                      (void*)psEntry->pasCmdSeq );
-#endif
                /*
                ** Loop until end of sequence.
                */
@@ -398,28 +393,23 @@ static void HandleResponse( ABP_MsgType* psMsg )
             }
             else if( eStatus == ABCC_CMDSEQ_RESP_EXEC_CURRENT )
             {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-               ABCC_DebugPrintf( "CmdSeq(%p)->Executing same sequence step again\n",
+               ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Executing same sequence step again\n",
                      (void*)psEntry->pasCmdSeq );
-#endif
             }
             else
             {
-               ABCC_ASSERT( FALSE );
+               ABCC_LOG_ERROR( ABCC_EC_PARAMETER_NOT_VALID,
+                  (UINT32)eStatus,
+                  "Bad return parameter from response handler (%d)\n",
+                  eStatus );
+               return;
             }
          }
          else
          {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-            ABCC_DebugPrintf( "CmdSeq(%p)->Response received\n",
+            ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->No response handler\n",
                   (void*)psEntry->pasCmdSeq );
-#endif
-            /*
-            ** No response handler exists. Check that message is OK and move to next command.
-            ** Move to next command in sequence
-            */
-            ABCC_ASSERT_ERR( ABCC_VerifyMessage( psMsg ) == ABCC_EC_NO_ERROR,
-                             ABCC_SEV_WARNING, ABCC_EC_RESP_MSG_E_BIT_SET, 0 );
+
             psEntry->bCurrSeqIndex++;
          }
 
@@ -468,19 +458,15 @@ static BOOL ExecCmdSequence( CmdSeqEntryType* psEntry, ABP_MsgType* psMsg )
 
       while( ( psCmdSeq->pnCmdHandler != NULL ) && !fCmdBufferConsumed )
       {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-         ABCC_DebugPrintf( "CmdSeq(%p)->%s()\n",
+         ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->%s()\n",
                (void*)psEntry->pasCmdSeq,
                psEntry->pasCmdSeq[ psEntry->bCurrSeqIndex ].pcCmdName );
 
-#endif
          eStatus = psCmdSeq->pnCmdHandler( psMsg, psEntry->pxUserData );
          if( eStatus == ABCC_CMDSEQ_CMD_SKIP )
          {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-            ABCC_DebugPrintf( "CmdSeq(%p)->Command not sent, jump to next sequence step\n",
+            ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Command not sent, jump to next sequence step\n",
                   (void*)psEntry->pasCmdSeq );
-#endif
             /*
             ** User has chosen not to execute this command. Move to next.
             */
@@ -492,17 +478,17 @@ static BOOL ExecCmdSequence( CmdSeqEntryType* psEntry, ABP_MsgType* psMsg )
             psEntry->bSourceId = ABCC_GetMsgSourceId( psMsg );
             if( !CheckAndSetState( psEntry, CMD_SEQ_STATE_ANY, CMD_SEQ_STATE_WAIT_RESP ) )
             {
-               ABCC_ASSERT( FALSE );
+               ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED,
+                  0,
+                  "Failed to set command sequence state\n" );
             }
             (void)ABCC_SendCmdMsg( psMsg, HandleResponse );
             fCmdBufferConsumed = TRUE;
          }
          else if( eStatus == ABCC_CMDSEQ_CMD_ABORT )
          {
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-            ABCC_DebugPrintf( "CmdSeq(%p)->Aborted\n",
+            ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Aborted\n",
                   (void*)psEntry->pasCmdSeq );
-#endif
             /*
             ** Abort move to end of sequence
             */
@@ -511,7 +497,10 @@ static BOOL ExecCmdSequence( CmdSeqEntryType* psEntry, ABP_MsgType* psMsg )
          }
          else
          {
-            ABCC_ASSERT( FALSE );
+            ABCC_LOG_ERROR( ABCC_EC_PARAMETER_NOT_VALID,
+               (UINT32)eStatus,
+               "Bad return parameter from response handler (%d)\n",
+               eStatus );
          }
       }
 
@@ -530,10 +519,8 @@ static BOOL ExecCmdSequence( CmdSeqEntryType* psEntry, ABP_MsgType* psMsg )
          ABCC_ReturnMsgBuffer( &psMsg );
          fCmdBufferConsumed = TRUE;
 
-#if ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-         ABCC_DebugPrintf( "CmdSeq(%p)->Done\n",
+         ABCC_LOG_DEBUG_CMD_SEQ( "CmdSeq(%p)->Done\n",
                (void*)psEntry->pasCmdSeq );
-#endif
          pnSeqDone = psEntry->pnSeqDone;
          pxUserData = psEntry->pxUserData;
          eSeqResult = psEntry->eSeqResult;
@@ -554,7 +541,9 @@ static BOOL ExecCmdSequence( CmdSeqEntryType* psEntry, ABP_MsgType* psMsg )
       */
       if( !CheckAndSetState( psEntry, CMD_SEQ_STATE_ANY, CMD_SEQ_STATE_RETRIGGER ) )
       {
-         ABCC_ASSERT( FALSE );
+         ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED,
+            0,
+            "Failed to set command sequence state\n" );
       }
    }
 
@@ -593,9 +582,7 @@ ABCC_ErrorCodeType ABCC_CmdSeqAdd(
    }
    else
    {
-      ABCC_ERROR( ABCC_SEV_WARNING,
-                  ABCC_EC_OUT_OF_CMD_SEQ_RESOURCES,
-                  ABCC_CFG_MAX_NUM_CMD_SEQ );
+      ABCC_LOG_WARNING( ABCC_EC_OUT_OF_CMD_SEQ_RESOURCES, ABCC_CFG_MAX_NUM_CMD_SEQ, "Out of command sequence resources" );
    }
 
    return( ABCC_EC_NO_ERROR );
@@ -656,7 +643,7 @@ void ABCC_CmdSequencerExec( void )
             abcc_asCmdSeq[ i ].bRetryCount++;
             if( abcc_asCmdSeq[ i ].bRetryCount > ABCC_CFG_CMD_SEQ_MAX_NUM_RETRIES )
             {
-               ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_OUT_OF_MSG_BUFFERS, (UINT32)abcc_asCmdSeq[ i ].pasCmdSeq );
+               ABCC_LOG_WARNING( ABCC_EC_CMD_SEQ_RETRY_LIMIT, 0, "Command sequence retry limit reached\n" );
             }
 
             if( psMsg == NULL )

@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -23,13 +23,13 @@
 #include "abcc_types.h"
 #include "abp.h"
 #include "abcc.h"
-#include "../abcc_debug_error.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_log.h"
+#include "abcc_system_adaptation.h"
 #include "../abcc_timer.h"
 #include "../abcc_driver_interface.h"
 #include "../abcc_memory.h"
 #include "abcc_crc16.h"
-#include "abcc_hardware_abstraction_serial.h"
+#include "abcc_system_adaptation_serial.h"
 #include "abcc_port.h"
 #include "abcc_driver_serial_interface.h"
 
@@ -121,6 +121,7 @@ static BOOL              fSendWriteMessageEndMark;   /* Indicate end of message 
 static BOOL              drv_fNewRxTelegramReceived; /* Serail driver has a complete message */
 static UINT8*            drv_bpRdPd;                 /* Pointer to valid read process data */
 
+static UINT16            drv_iCrcErrorCount;         /* CRC error counter */
 /*
 ** Timers and watchdogs
 */
@@ -186,7 +187,14 @@ static void drv_GetWriteFrag( WrMsgFragType* const psFragHandle, UINT8* const pb
    /*
    ** Copy the message into the MOSI frame buffer.
    */
-   ABCC_ASSERT( psFragHandle->iNumBytesLeft > 0 );
+   if( psFragHandle->iNumBytesLeft <= 0 )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_ASSERT_FAILED,
+         0,
+         "No data to copy (%" PRId16 ")\n",
+         psFragHandle->iNumBytesLeft );
+      return;
+   }
 
    ABCC_PORT_MemCpy( pbBuffer,
                      psFragHandle->pbCurrPtr,
@@ -316,11 +324,16 @@ static void drv_TelegramTimeoutHandler( void )
 
 void ABCC_DrvSerInit( UINT8 bOpmode )
 {
-   ABCC_ASSERT_ERR( ( bOpmode == ABP_OP_MODE_SERIAL_19_2 ) ||
-                    ( bOpmode == ABP_OP_MODE_SERIAL_57_6 ) ||
-                    ( bOpmode == ABP_OP_MODE_SERIAL_115_2 ) ||
-                    ( bOpmode == ABP_OP_MODE_SERIAL_625 ),
-                    ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)bOpmode );
+   if( ( bOpmode != ABP_OP_MODE_SERIAL_19_2 ) &&
+       ( bOpmode != ABP_OP_MODE_SERIAL_57_6 ) &&
+       ( bOpmode != ABP_OP_MODE_SERIAL_115_2 ) &&
+       ( bOpmode != ABP_OP_MODE_SERIAL_625 ) )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_INCORRECT_OPERATING_MODE,
+         (UINT32)bOpmode,
+         "Incorrect operating mode %" PRIu8 "\n",
+         bOpmode );
+   }
 
    /*
    ** Initialize privates and states.
@@ -369,7 +382,10 @@ void ABCC_DrvSerInit( UINT8 bOpmode )
       iTelegramTmoMs = ABCC_CFG_SERIAL_TMO_625;
       break;
    default:
-      ABCC_ASSERT_ERR( FALSE, ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)bOpmode );
+      ABCC_LOG_FATAL( ABCC_EC_INCORRECT_OPERATING_MODE,
+         (UINT32)bOpmode,
+         "Incorrect operating mode %" PRIu8 "\n",
+         bOpmode );
       break;
    }
 
@@ -479,7 +495,7 @@ void ABCC_DrvSerRunDriverTx( void )
       /*
       ** Send  TX telegram and received Rx telegram.
       */
-      ABCC_DEBUG_HEXDUMP_UART( "HEXDUMP_TX:", (UINT8*)&drv_sTxTelegram, drv_iTxFrameSize + SER_CRC_LEN );
+      ABCC_LOG_DEBUG_UART_HEXDUMP_TX( (UINT8*)&drv_sTxTelegram, drv_iTxFrameSize + SER_CRC_LEN );
       ABCC_TimerStart( xTelegramTmoHandle, iTelegramTmoMs );
       ABCC_SYS_SerSendReceive( (UINT8*)&drv_sTxTelegram,  (UINT8*)&drv_sRxTelegram, drv_iTxFrameSize + SER_CRC_LEN, drv_iRxFrameSize + SER_CRC_LEN );
    }
@@ -523,7 +539,7 @@ ABP_MsgType* ABCC_DrvSerRunDriverRx( void )
       */
       drv_fNewRxTelegramReceived = FALSE;
 
-      ABCC_DEBUG_HEXDUMP_UART( "HEXDUMP_RX:", (UINT8*)&drv_sRxTelegram, drv_iRxFrameSize + SER_CRC_LEN );
+      ABCC_LOG_DEBUG_UART_HEXDUMP_RX( (UINT8*)&drv_sRxTelegram, drv_iRxFrameSize + SER_CRC_LEN );
 
       iReceivedCrc = CRC_Crc16( (UINT8*)&drv_sRxTelegram, drv_iRxFrameSize );
 
@@ -537,10 +553,11 @@ ABP_MsgType* ABCC_DrvSerRunDriverRx( void )
             ( drv_sRxTelegram.bStatus & ABP_CTRL_T_BIT ) ) ||
           ( iCalcCrc != iReceivedCrc ) )
       {
-#if ABCC_CFG_DEBUG_CRC_ERROR_CNT_ENABLED
-         DEBUG_iCrcErrorCnt++;
-         ABCC_ERROR( ABCC_SEV_INFORMATION, ABCC_EC_CHECKSUM_MISMATCH, (UINT32)DEBUG_iCrcErrorCnt );
-#endif
+         drv_iCrcErrorCount++;
+         ABCC_LOG_WARNING( ABCC_EC_CHECKSUM_MISMATCH,
+            drv_iCrcErrorCount,
+            "CRC check failed for received message (error count: %" PRIu16 ")\n",
+            drv_iCrcErrorCount );
          ABCC_SYS_SerRestart();
          return( NULL );
       }
@@ -616,7 +633,9 @@ ABP_MsgType* ABCC_DrvSerRunDriverRx( void )
 
                if( drv_psReadMessage == NULL )
                {
-                  ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_OUT_OF_MSG_BUFFERS, 0 );
+                  ABCC_LOG_WARNING( ABCC_EC_OUT_OF_MSG_BUFFERS,
+                     0,
+                     "Out of message buffers when attempting to read a message\n" );
                   return( NULL );
                }
             }
@@ -668,10 +687,22 @@ UINT16 ABCC_DrvSerISR( void )
 BOOL ABCC_DrvSerWriteMessage( ABP_MsgType* psWriteMsg )
 {
    ABCC_PORT_UseCritical();
-   ABCC_ASSERT_ERR( psWriteMsg, ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR, (UINT32)psWriteMsg );
+   if( !psWriteMsg )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR,
+         0,
+         "Unexpected NULL pointer\n" );
+   }
 
    ABCC_PORT_EnterCritical();
-   ABCC_ASSERT_ERR( drv_psWriteMessage == NULL, ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR, (UINT32)drv_psWriteMessage );
+
+   if( drv_psWriteMessage )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_INCORRECT_STATE,
+         (UINT32)drv_psWriteMessage,
+         "Expected drv_psWriteMessage to be NULL, was %p\n",
+         (void*)drv_psWriteMessage );
+   }
 
    drv_psWriteMessage = psWriteMsg;
    ABCC_PORT_ExitCritical();
@@ -690,7 +721,10 @@ void ABCC_DrvSerWriteProcessData( void* pxProcessData )
    */
    if( drv_eState != SM_SER_RDY_TO_SEND_PING )
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_INCORRECT_STATE, drv_eState );
+      ABCC_LOG_ERROR( ABCC_EC_INCORRECT_STATE,
+         (UINT32)drv_eState,
+         "Wrong driver state (%d)\n",
+         drv_eState );
    }
 }
 
@@ -732,8 +766,26 @@ void ABCC_DrvSerSetPdSize( const UINT16  iReadPdSize, const UINT16  iWritePdSize
    ** The serial application interface can't handle more than 256 bytes of PD.
    ** Pull the plug if someone orders a larger PD size than that.
    */
-   ABCC_ASSERT_ERR( iReadPdSize <= ABP_MAX_PROCESS_DATA, ABCC_SEV_FATAL, ABCC_EC_RDPD_SIZE_ERR, (UINT32)iReadPdSize );
-   ABCC_ASSERT_ERR( iWritePdSize <= ABP_MAX_PROCESS_DATA, ABCC_SEV_FATAL, ABCC_EC_WRPD_SIZE_ERR, (UINT32)iWritePdSize );
+   if( iReadPdSize > ABP_MAX_PROCESS_DATA )
+   {
+      ABCC_LOG_ERROR( ABCC_EC_RDPD_SIZE_ERR,
+         0,
+         "Read PD size too big for serial operating mode PD size error %" PRIu16 ">%d\n",
+         iReadPdSize,
+         ABP_MAX_PROCESS_DATA );
+
+      return;
+   }
+   else if( iWritePdSize > ABP_MAX_PROCESS_DATA )
+   {
+      ABCC_LOG_ERROR( ABCC_EC_WRPD_SIZE_ERR,
+         0,
+         "Read PD size too big for serial operating mode PD size error %" PRIu16 ">%d\n",
+         iWritePdSize,
+         ABP_MAX_PROCESS_DATA );
+
+      return;
+   }
 
    /*
    **  Update lengths dependent on pd sizes
@@ -754,7 +806,9 @@ static void DrvSerSetMsgReceiverBuffer( ABP_MsgType* const psReadMsg )
 
 UINT16 ABCC_DrvSerGetIntStatus( void )
 {
-   ABCC_ERROR( ABCC_SEV_FATAL, ABCC_EC_INTSTATUS_NOT_SUPPORTED_BY_DRV_IMPL, 0 );
+   ABCC_LOG_WARNING( ABCC_EC_INTSTATUS_NOT_SUPPORTED_BY_DRV_IMPL,
+      0,
+      "Interrupt status not supported by serial driver\n" );
 
    return( 0 );
 }
@@ -766,7 +820,7 @@ UINT8 ABCC_DrvSerGetAnybusState( void )
 
 void* ABCC_DrvSerReadProcessData( void )
 {
-    return( drv_bpRdPd );
+   return( drv_bpRdPd );
 }
 
 ABP_MsgType* ABCC_DrvSerReadMessage( void )
@@ -801,13 +855,17 @@ void* ABCC_DrvSerGetWrPdBuffer( void )
 
 UINT16 ABCC_DrvSerGetModCap( void )
 {
-   ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL, 0 );
+   ABCC_LOG_WARNING( ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL,
+      0,
+      "Module capability not supported by serial driver\n" );
    return( 0 );
 }
 
 UINT16 ABCC_DrvSerGetLedStatus( void )
 {
-   ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL, 0 );
+   ABCC_LOG_WARNING( ABCC_EC_LEDSTATUS_NOT_SUPPORTED_BY_DRV_IMPL,
+      0,
+      "LED status not supported by serial driver\n" );
    return( 0 );
 }
 

@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -21,14 +21,14 @@
 #if ABCC_CFG_DRV_SPI_ENABLED
 
 #include "abcc_types.h"
-#include "../abcc_debug_error.h"
-#include "abcc_hardware_abstraction.h"
+#include "abcc_log.h"
+#include "abcc_system_adaptation.h"
 #include "../abcc_timer.h"
 #include "../abcc_driver_interface.h"
 #include "../abcc_memory.h"
 #include "../abcc_handler.h"
 #include "abcc_crc32.h"
-#include "abcc_hardware_abstraction_spi.h"
+#include "abcc_system_adaptation_spi.h"
 
 #if ( ABCC_CFG_MAX_MSG_SIZE < 16 )
 #error "ABCC_CFG_MAX_MSG_SIZE must be at least a 16 bytes"
@@ -193,6 +193,8 @@ static BOOL                         fWdTmo;                       /* Current wd 
 
 static UINT16                       spi_drv_iMsgLen;              /* Message length ( in words ) */
 
+static UINT16                       drv_iCrcErrorCount;           /* CRC error counter */
+
 static void spi_drv_DataReceived( void );
 static void spi_drv_ResetReadFragInfo( void );
 static void spi_drv_ResetWriteFragInfo( void );
@@ -246,9 +248,13 @@ void ABCC_DrvSpiRunDriverTx( void )
 
       if( fHandleWriteMsg )
       {
-         ABCC_ASSERT_ERR( spi_drv_sWriteFragInfo.puCurrPtr,
-                          ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR,
-                          (UINT32)spi_drv_sWriteFragInfo.puCurrPtr );
+         if( !spi_drv_sWriteFragInfo.puCurrPtr )
+         {
+            ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR,
+               (UINT32)spi_drv_sWriteFragInfo.puCurrPtr,
+               "Unexpected NULL pointer\n" );
+         }
+
          /*
          ** Write the message to be sent.
          */
@@ -302,8 +308,8 @@ void ABCC_DrvSpiRunDriverTx( void )
       /*
       ** Apply the CRC checksum.
       */
-      lCrc = CRC_Crc32( (UINT16*)&spi_drv_sMosiFrame, spi_drv_iSpiFrameSize*2 - 6 );
-      lCrc = lTOlLe( lCrc );
+      lCrc = CRC_Crc32( (UINT8*)&spi_drv_sMosiFrame, spi_drv_iSpiFrameSize*2 - 6 );
+      lCrc = lTOlBe( lCrc );
 
       ABCC_PORT_MemCpy( &spi_drv_sMosiFrame.iData[ spi_drv_iCrcOffset ],
                         &lCrc,
@@ -312,7 +318,7 @@ void ABCC_DrvSpiRunDriverTx( void )
       /*
       ** Send the MOSI frame.
       */
-      ABCC_DEBUG_HEXDUMP_SPI( "HEXDUMP_MOSI:", (UINT16*)&spi_drv_sMosiFrame, spi_drv_iSpiFrameSize );
+      ABCC_LOG_DEBUG_SPI_HEXDUMP_MOSI( (UINT16*)&spi_drv_sMosiFrame, spi_drv_iSpiFrameSize );
       ABCC_SYS_SpiSendReceive( &spi_drv_sMosiFrame, &spi_drv_sMisoFrame, spi_drv_iSpiFrameSize << 1 );
    }
    else if( spi_drv_eState == SM_SPI_INIT )
@@ -352,10 +358,10 @@ ABP_MsgType* ABCC_DrvSpiRunDriverRx( void )
          spi_drv_fNewMisoReceived = FALSE;
       }
 
-      ABCC_DEBUG_HEXDUMP_SPI( "HEXDUMP_MISO:", (UINT16*)&spi_drv_sMisoFrame, spi_drv_iSpiFrameSize );
+      ABCC_LOG_DEBUG_SPI_HEXDUMP_MISO( (UINT16*)&spi_drv_sMisoFrame, spi_drv_iSpiFrameSize );
 
-      lCalculatedCrc = CRC_Crc32( (UINT16*)&spi_drv_sMisoFrame, spi_drv_iSpiFrameSize*2 - 4 );
-      lCalculatedCrc = lLeTOl( lCalculatedCrc );
+      lCalculatedCrc = CRC_Crc32( (UINT8*)&spi_drv_sMisoFrame, spi_drv_iSpiFrameSize*2 - 4 );
+      lCalculatedCrc = lTOlBe( lCalculatedCrc );
 
       ABCC_PORT_MemCpy( &lRecievedCrc,
                         &spi_drv_sMisoFrame.iData[ spi_drv_iCrcOffset ],
@@ -366,10 +372,11 @@ ABP_MsgType* ABCC_DrvSpiRunDriverRx( void )
          /*
          ** We will request a retransmit if the data is corrupt.
          */
-#if ABCC_CFG_DEBUG_CRC_ERROR_CNT_ENABLED
-         DEBUG_iCrcErrorCnt++;
-         ABCC_ERROR( ABCC_SEV_INFORMATION, ABCC_EC_CHECKSUM_MISMATCH, (UINT32)DEBUG_iCrcErrorCnt );
-#endif
+         drv_iCrcErrorCount++;
+         ABCC_LOG_WARNING( ABCC_EC_CHECKSUM_MISMATCH,
+            drv_iCrcErrorCount,
+            "CRC check failed for received message (error count: %" PRIu16 ")\n",
+            drv_iCrcErrorCount );
          spi_drv_fRetransmit = TRUE;
          spi_drv_eState = SM_SPI_RDY_TO_SEND_MOSI;
          return( NULL );
@@ -453,7 +460,7 @@ ABP_MsgType* ABCC_DrvSpiRunDriverRx( void )
 
             if( spi_drv_sReadFragInfo.puCurrPtr == 0 )
             {
-               ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_OUT_OF_MSG_BUFFERS, 0 );
+               ABCC_LOG_WARNING( ABCC_EC_OUT_OF_MSG_BUFFERS, 0, "Out of message buffers when attempting to read a message\n" );
                return( NULL );
             }
          }
@@ -575,12 +582,8 @@ static void drv_WdTimeoutHandler( void )
 
 void ABCC_DrvSpiInit( UINT8 bOpmode )
 {
-
    UINT16 i;
-   /*
-   ** Initialize privates and states.
-   */
-   ABCC_ASSERT_ERR( bOpmode == 1, ABCC_SEV_FATAL, ABCC_EC_INCORRECT_OPERATING_MODE, (UINT32)bOpmode );
+   (void)bOpmode;
 
    spi_drv_sMosiFrame.iSpiControl = 0;
    for( i = 0; i < MAX_PAYLOAD_WORD_LEN; i++ )
@@ -633,10 +636,21 @@ void ABCC_DrvSpiInit( UINT8 bOpmode )
 BOOL ABCC_DrvSpiWriteMessage( ABP_MsgType* psWriteMsg )
 {
    ABCC_PORT_UseCritical();
-   ABCC_ASSERT_ERR( psWriteMsg, ABCC_SEV_FATAL, ABCC_EC_UNEXPECTED_NULL_PTR, (UINT32)psWriteMsg );
+
+   if( !psWriteMsg )
+   {
+      ABCC_LOG_FATAL( ABCC_EC_UNEXPECTED_NULL_PTR,
+         0,
+         "Unexpected NULL pointer\n" );
+   }
 
    ABCC_PORT_EnterCritical();
-   ABCC_ASSERT( spi_drv_sWriteFragInfo.psWriteMsg == NULL );
+   if( spi_drv_sWriteFragInfo.psWriteMsg != NULL )
+   {
+      ABCC_PORT_ExitCritical();
+      ABCC_LOG_WARNING( ABCC_EC_ASSERT_FAILED, 0, "Write message not NULL\n" );
+      return( FALSE );
+   }
 #if ( __GNUC__ >= 9 )
    #pragma GCC diagnostic push
    #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
@@ -667,9 +681,10 @@ void ABCC_DrvSpiWriteProcessData( void* pxProcessData )
    }
    else
    {
-      ABCC_ERROR( ABCC_SEV_WARNING,
-                  ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION,
-                  spi_drv_eState );
+      ABCC_LOG_WARNING( ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION,
+         (UINT32)spi_drv_eState,
+         "Write process data operation not allowed in this state (state: %d)\n",
+         spi_drv_eState );
    }
 }
 
@@ -725,7 +740,8 @@ void ABCC_DrvSpiSetPdSize( const UINT16  iReadPdSize, const UINT16  iWritePdSize
    }
    else
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION, 0 );
+      ABCC_LOG_WARNING( ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION,
+         (UINT32)spi_drv_eState, "Set PD size operation not allowed in this state (state: %d)\n", spi_drv_eState );
    }
 }
 
@@ -749,13 +765,18 @@ static void DrvSpiSetMsgReceiverBuffer( ABP_MsgType* const psReadMsg )
    }
    else
    {
-      ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION, 0 );
+      ABCC_LOG_WARNING( ABCC_EC_SPI_OP_NOT_ALLOWED_DURING_SPI_TRANSACTION,
+         (UINT32)spi_drv_sReadFragInfo.puCurrPtr,
+         "Set message receiver buffer operation not allowed in this state (state: %d)\n",
+         spi_drv_eState );
    }
 }
 
 UINT16 ABCC_DrvSpiGetIntStatus( void )
 {
-   ABCC_ERROR(ABCC_SEV_FATAL, ABCC_EC_INTSTATUS_NOT_SUPPORTED_BY_DRV_IMPL, 0);
+   ABCC_LOG_FATAL( ABCC_EC_INTSTATUS_NOT_SUPPORTED_BY_DRV_IMPL,
+      0,
+      "Interrupt status not supported by SPI driver\n" );
 
    return( 0xFFFF );
 }
@@ -803,7 +824,9 @@ void* ABCC_DrvSpiGetWrPdBuffer( void )
 
 UINT16 ABCC_DrvSpiGetModCap( void )
 {
-   ABCC_ERROR( ABCC_SEV_WARNING, ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL, 0 );
+   ABCC_LOG_WARNING( ABCC_EC_MODCAP_NOT_SUPPORTED_BY_DRV_IMPL,
+      0,
+      "Module capability not supported by SPI driver\n" );
    return( 0 );
 }
 

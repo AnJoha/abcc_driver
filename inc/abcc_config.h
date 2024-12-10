@@ -1,7 +1,7 @@
 /*******************************************************************************
 ********************************************************************************
 **                                                                            **
-** ABCC Driver version edc67ee (2024-10-25)                                   **
+** ABCC Driver version 0401fde (2024-11-13)                                   **
 **                                                                            **
 ** Delivered with:                                                            **
 **    ABP            c799efc (2024-05-14)                                     **
@@ -228,6 +228,21 @@
 */
 #ifndef ABCC_CFG_SPI_MSG_FRAG_LEN
     #define ABCC_CFG_SPI_MSG_FRAG_LEN ( 16 )
+#endif
+
+/*------------------------------------------------------------------------------
+** #define ABCC_SPI_CRC_REDUCED_TABLE_ENABLED  1 - Enable / 0 - Disable
+**
+** Default value below can be overridden in abcc_driver_config.h
+**
+** There are two versions of the CRC algorithm implemented where one uses a full
+** CRC table and one uses a reduced CRC table. The full table is typically
+** faster but will consume more memory (1024 bytes vs 64 bytes). Configure this
+** based on performance needs vs available memory.
+**------------------------------------------------------------------------------
+*/
+#ifndef ABCC_SPI_CRC_REDUCED_TABLE_ENABLED
+   #define ABCC_SPI_CRC_REDUCED_TABLE_ENABLED 1
 #endif
 
 /*------------------------------------------------------------------------------
@@ -615,102 +630,61 @@ ABCC_CFG_DRV_PARALLEL_ENABLED and ABCC_CFG_MEMORY_MAPPED_ACCESS_ENABLED are enab
 #endif
 
 /*------------------------------------------------------------------------------
-** #define ABCC_CFG_ERR_REPORTING_ENABLED   1 - Enable / 0 - Disable
+** #define ABCC_CFG_LOG_SEVERITY
 **
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable the error reporting callback function (ABCC_CbfDriverError())
-** If ABCC_CFG_ERR_REPORTING_ENABLED is 0 no error handling will be done in
-** the driver. It is strongly recommended to have ABCC_CFG_ERR_REPORTING_ENABLED
-** set to 1.
+** Configure the severity level to be logged. The different severity levels are
+** defined in abcc_log.h using the format ABCC_LOG_SEVERITY_*_ENABLED.
+** All severity levels including and above the configured level will be logged.
+** For the severity level debug some component specific defines have to be
+** enabled for full debug output. See ABCC_CFG_DEBUG_*_ENABLED below for
+** details.
 **------------------------------------------------------------------------------
 */
-#ifndef ABCC_CFG_ERR_REPORTING_ENABLED
-    #define ABCC_CFG_ERR_REPORTING_ENABLED 1
+#ifndef ABCC_CFG_LOG_SEVERITY
+    #define ABCC_CFG_LOG_SEVERITY ABCC_LOG_SEVERITY_ERROR_ENABLED
 #endif
 
 /*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_LOG_COLORS_ENABLED   1 - Enable / 0 - Disable
+** Defines for making the log output more verbose.
 **
-** Default value below can be overridden in abcc_driver_config.h
+** #define ABCC_CFG_LOG_FILE_LINE_ENABLED   1 - Enable / 0 - Disable
 **
-** Enable/disable colored debug logs. The console displaying the logs need to
-** support ANSI colors for this to work.
+** Include file name in the output logs. Makes it easier to locate the source
+** of the print but consumes more memory.
+**
+** #define ABCC_CFG_LOG_COLORS_ENABLED      1 - Enable / 0 - Disable
+**
+** Enable colored debug logs. The console displaying the logs need to support
+** ANSI colors for this to work.
+**
+** #define ABCC_CFG_LOG_TIMESTAMPS_ENABLED  1 - Enable / 0 - Disable
+**
+** Enable timestamps to be included in debug logs. The timestamps rely on
+** ABCC_RunTimerSystem() being called at a regular interval.
+**
+** #define ABCC_CFG_LOG_STRINGS_ENABLED     1 - Enable / 0 - Disable
+**
+** Enable strings to be included in debug logs. This will increase the memory
+** footprint of the driver but will aid in debugging. Log level debug and
+** info will not be very useful without this define enabled.
 **------------------------------------------------------------------------------
 */
-#ifndef ABCC_CFG_DEBUG_LOG_COLORS_ENABLED
-    #define ABCC_CFG_DEBUG_LOG_COLORS_ENABLED 0
+#ifndef ABCC_CFG_LOG_FILE_LINE_ENABLED
+    #define ABCC_CFG_LOG_FILE_LINE_ENABLED 1
+#endif
+#ifndef ABCC_CFG_LOG_COLORS_ENABLED
+    #define ABCC_CFG_LOG_COLORS_ENABLED 0
+#endif
+#ifndef ABCC_CFG_LOG_TIMESTAMPS_ENABLED
+    #define ABCC_CFG_LOG_TIMESTAMPS_ENABLED 1
+#endif
+#ifndef ABCC_CFG_LOG_STRINGS_ENABLED
+    #define ABCC_CFG_LOG_STRINGS_ENABLED 1
 #endif
 
 /*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED   1 - Enable / 0 - Disable
+** Enable component specifc debug logs.
 **
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable timestamps to be included in debug logs. The timestamps
-** rely on ABCC_RunTimerSystem() being called at a regular interval.
-**------------------------------------------------------------------------------
-*/
-#ifndef ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED
-    #define ABCC_CFG_DEBUG_TIMESTAMPS_ENABLED 1
-#endif
-
-/*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_EVENT_ENABLED   1 - Enable / 0 - Disable
-**
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable driver support for print out of debug events within the
-** driver.
-**------------------------------------------------------------------------------
-*/
-#ifndef ABCC_CFG_DEBUG_EVENT_ENABLED
-    #define ABCC_CFG_DEBUG_EVENT_ENABLED 0
-#endif
-
-/*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_ERR_ENABLED   1 - Enable / 0 - Disable
-**
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable printout of debug information when an error is detected by the
-** driver, such as filename, line number and error information.
-** Note! Enabling the debug error handling may significantly increase the code
-** size.
-** Debug error handling demands that ABCC_CFG_ERR_REPORTING_ENABLED is 1.
-**------------------------------------------------------------------------------
-*/
-#ifndef ABCC_CFG_DEBUG_ERR_ENABLED
-    #define ABCC_CFG_DEBUG_ERR_ENABLED 0
-#endif
-
-/*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_MESSAGING_ENABLED   1 - Enable / 0 - Disable
-**
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable printout of received and sent messages. Related events such as
-** buffer allocation and queue information is also printed.
-**------------------------------------------------------------------------------
-*/
-#ifndef ABCC_CFG_DEBUG_MESSAGING_ENABLED
-    #define ABCC_CFG_DEBUG_MESSAGING_ENABLED 0
-#endif
-
-/*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_CMD_SEQ_ENABLED      1 - Enable / 0 - Disable
-**
-** Default value below can be overridden in abcc_driver_config.h
-**
-** Enable/disable printout of command sequencer actions.
-**------------------------------------------------------------------------------
-*/
-#ifndef ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
-    #define ABCC_CFG_DEBUG_CMD_SEQ_ENABLED 0
-#endif
-
-/*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_HEXDUMP_MSG_ENABLED          1 - Enable / 0 - Disable
 ** #define ABCC_CFG_DEBUG_HEXDUMP_SPI_ENABLED          1 - Enable / 0 - Disable
 ** #define ABCC_CFG_DEBUG_HEXDUMP_UART_ENABLED         1 - Enable / 0 - Disable
 **
@@ -720,31 +694,42 @@ ABCC_CFG_DRV_PARALLEL_ENABLED and ABCC_CFG_MEMORY_MAPPED_ACCESS_ENABLED are enab
 ** telegrams. Enabling any of those will also include a corresponding printout
 ** when a HW reset of the ABCC is made. Enabling the message hexdump will also
 ** add a printout when the ABCCs state changes.
+**
+** #define ABCC_CFG_DEBUG_MESSAGING_ENABLED            1 - Enable / 0 - Disable
+**
+** Enable/disable printout of received and sent messages. Related events such as
+** buffer allocation and queue information is also printed.
+**
+** #define ABCC_CFG_DEBUG_CMD_SEQ_ENABLED              1 - Enable / 0 - Disable
+**
+** Enable/disable printout of command sequencer actions.
 **------------------------------------------------------------------------------
 */
-#ifndef ABCC_CFG_DEBUG_HEXDUMP_MSG_ENABLED
-    #define ABCC_CFG_DEBUG_HEXDUMP_MSG_ENABLED 0
-#endif
 #ifndef ABCC_CFG_DEBUG_HEXDUMP_SPI_ENABLED
     #define ABCC_CFG_DEBUG_HEXDUMP_SPI_ENABLED 0
 #endif
 #ifndef ABCC_CFG_DEBUG_HEXDUMP_UART_ENABLED
     #define ABCC_CFG_DEBUG_HEXDUMP_UART_ENABLED 0
 #endif
+#ifndef ABCC_CFG_DEBUG_MESSAGING_ENABLED
+    #define ABCC_CFG_DEBUG_MESSAGING_ENABLED 0
+#endif
+#ifndef ABCC_CFG_DEBUG_CMD_SEQ_ENABLED
+    #define ABCC_CFG_DEBUG_CMD_SEQ_ENABLED 0
+#endif
 
 /*------------------------------------------------------------------------------
-** #define ABCC_CFG_DEBUG_CRC_ERROR_CNT_ENABLED        1 - Enable / 0 - Disable
+** #define ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED        1 - Enable / 0 - Disable
 **
 ** Default value below can be overridden in abcc_driver_config.h
 **
-** If 1 an UINT16 counter for CRC errors for the SPI and UART application
-** interfaces will be included in the code, plus corresponding ABCC_ERROR()
-** information printouts when a CRC error occurs. The counter is accessible
-** via an extern declaration in "abcc_debug_error.h".
+** If 1 a size validation is done in ABCC_SeMsgt* and ABCC_GetMsg* macros where
+** data is copied to/from message buffers. If the attempted set/get would result
+** in a buffer overflow or read out of bounds a fatal event will be logged.
 **------------------------------------------------------------------------------
 */
-#ifndef ABCC_CFG_DEBUG_CRC_ERROR_CNT_ENABLED
-    #define ABCC_CFG_DEBUG_CRC_ERROR_CNT_ENABLED 0
+#ifndef ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED
+    #define ABCC_CFG_MESSAGE_SIZE_CHECK_ENABLED  0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -892,6 +877,21 @@ ABCC_CFG_DRV_PARALLEL_ENABLED and ABCC_CFG_MEMORY_MAPPED_ACCESS_ENABLED are enab
 */
 #ifndef ABCC_CFG_CMD_SEQ_MAX_NUM_RETRIES
     #define ABCC_CFG_CMD_SEQ_MAX_NUM_RETRIES ( 0 )
+#endif
+
+/*------------------------------------------------------------------------------
+** #define ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED   1 - Enable / 0 - Disable
+**
+** Allows the user to handle ABCC commands before the default handler. This can
+** be used to implement custom handling of an attribute or a complete object.
+** The invoked callback function may also opt to let the default handler take
+** care of the command.
+**
+** ABCC_CbfReceiveMsg() must be implemented if this is enabled.
+**------------------------------------------------------------------------------
+*/
+#ifndef ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED
+   #define ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED 0
 #endif
 
 #endif  /* inclusion lock */
