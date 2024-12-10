@@ -9,8 +9,10 @@ set(abcc_driver_SRCS
     ${ABCC_DRIVER_DIR}/src/application_select_firmware.c
     ${ABCC_DRIVER_DIR}/src/application_abcc_handler.c
     ${ABCC_DRIVER_DIR}/src/abcc_command_sequencer.c
+    ${ABCC_DRIVER_DIR}/src/abcc_command_handler.c
+    ${ABCC_DRIVER_DIR}/src/abcc_command_sequencer.c
     ${ABCC_DRIVER_DIR}/src/abcc_copy.c
-    ${ABCC_DRIVER_DIR}/src/abcc_debug_error.c
+    ${ABCC_DRIVER_DIR}/src/abcc_log.c
     ${ABCC_DRIVER_DIR}/src/abcc_handler.c
     ${ABCC_DRIVER_DIR}/src/abcc_link.c
     ${ABCC_DRIVER_DIR}/src/abcc_memory.c
@@ -51,7 +53,7 @@ set(abcc_driver_SRCS
 # Complete list of source (.c) files inside the Anybus CompactCom Driver. 
 set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/src/abcc_command_sequencer.h
-    ${ABCC_DRIVER_DIR}/src/abcc_debug_error.h
+    ${ABCC_DRIVER_DIR}/src/abcc_command_handler.h
     ${ABCC_DRIVER_DIR}/src/abcc_driver_interface.h
     ${ABCC_DRIVER_DIR}/src/abcc_handler.h
     ${ABCC_DRIVER_DIR}/src/abcc_link.h
@@ -65,6 +67,9 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/src/serial/abcc_crc16.h
     ${ABCC_DRIVER_DIR}/src/serial/abcc_driver_serial_interface.h
     ${ABCC_DRIVER_DIR}/inc/abcc.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_error_codes.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_host_attributes_lookup.h
+    ${ABCC_DRIVER_DIR}/inc/abcc_log.h
     ${ABCC_DRIVER_DIR}/inc/abcc_application_data_interface.h
     ${ABCC_DRIVER_DIR}/inc/abcc_command_sequencer_interface.h
     ${ABCC_DRIVER_DIR}/inc/abcc_config.h
