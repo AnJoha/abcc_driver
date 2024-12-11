@@ -16,6 +16,7 @@
 #define ABCC_HOST_ATTR_LOOKUP_H_
 
 /* Application object, 255*/
+#define ABCC_APPLICATION_OBJ_SERIAL_NR_VALUE(x)    {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_SER_NUM,      .eServiceTag = SERVICE_UINT32, .uData.lUnsigned32    = (x)}
 #define ABCC_APPLICATION_OBJ_SERIAL_NR_CBFUNC      {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_SER_NUM,      .eServiceTag = SERVICE_UINT32, .uCbx.pnGetUint32Attr = ABCC_ImplApplicationObjSerialNum}
 
 #define ABCC_APPLICATION_OBJ_VENDOR_NAME_VALUE(x)  {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_VENDOR_NAME,  .eServiceTag = SERVICE_STR,    .uData.pacString      = (x)}
