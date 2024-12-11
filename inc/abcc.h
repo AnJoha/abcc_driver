@@ -23,6 +23,9 @@
 #include "abp.h"
 #include "abcc_application_data_interface.h"
 #include "abcc_error_codes.h"
+#include "application_abcc_handler.h"
+#include "abcc_hardware_abstraction.h"
+#include "application_data_object.h"
 
 #include "abcc_log.h"
 
