@@ -28,29 +28,38 @@ enum ABCC_ATTR_SERVICE_TAG
     SERVICE_STR,
 };
 
-typedef UINT8 (*ABCC_UINT8_AttrFuncType) (void);
-typedef INT8  (*ABCC_INT8_AttrFuncType)  (void);
-typedef UINT16(*ABCC_UINT16_AttrFuncType)(void);
-typedef INT16 (*ABCC_INT16_AttrFuncType) (void);
-typedef UINT32(*ABCC_UINT32_AttrFuncType)(void);
-typedef INT32 (*ABCC_INT32_AttrFuncType) (void);
-typedef UINT16(*ABCC_STR_AttrFuncType)   (char* pPackedStrDest, UINT16 iBuffSize);
+typedef UINT8 (*ABCC_UINT8_Get_AttrFuncType) (void);
+typedef INT8  (*ABCC_INT8_Get_AttrFuncType)  (void);
+typedef UINT16(*ABCC_UINT16_Get_AttrFuncType)(void);
+typedef INT16 (*ABCC_INT16_Get_AttrFuncType) (void);
+typedef UINT32(*ABCC_UINT32_Get_AttrFuncType)(void);
+typedef INT32 (*ABCC_INT32_Get_AttrFuncType) (void);
+typedef UINT16(*ABCC_STR_Get_AttrFuncType)   (char* pPackedStrDest, UINT16 iBuffSize);
 
+typedef void (*ABCC_UINT8_Set_AttrFuncType) (UINT8);
+typedef void (*ABCC_INT8_Set_AttrFuncType)  (INT8);
+typedef void (*ABCC_UINT16_Set_AttrFuncType)(UINT16);
+typedef void (*ABCC_INT16_Set_AttrFuncType) (INT16);
+typedef void (*ABCC_UINT32_Set_AttrFuncType)(UINT32);
+typedef void (*ABCC_INT32_Set_AttrFuncType) (INT32);
+typedef void (*ABCC_STR_Set_AttrFuncType)   (char* pPackedStrSrc, UINT16 iBuffSize);
 
 typedef struct
 {
     UINT8 bObject;
     UINT8 bAttribute;
+    enum ABP_MsgCmdType bCommand;
     enum ABCC_ATTR_SERVICE_TAG eServiceTag;
     union
     {
-        ABCC_UINT8_AttrFuncType  pnGetUint8Attr;
-        ABCC_INT8_AttrFuncType   pnGetInt8Attr;
-        ABCC_UINT16_AttrFuncType pnGetUint16Attr;
-        ABCC_INT16_AttrFuncType  pnGetInt16Attr;
-        ABCC_UINT32_AttrFuncType pnGetUint32Attr;
-        ABCC_INT32_AttrFuncType  pnGetInt32Attr;
-        ABCC_STR_AttrFuncType    pnGetStrAttr;
+        ABCC_UINT8_Get_AttrFuncType  pnGetUint8Attr;
+        ABCC_INT8_Get_AttrFuncType   pnGetInt8Attr;
+        ABCC_UINT16_Get_AttrFuncType pnGetUint16Attr;
+        ABCC_INT16_Get_AttrFuncType  pnGetInt16Attr;
+        ABCC_UINT32_Get_AttrFuncType pnGetUint32Attr;
+        ABCC_INT32_Get_AttrFuncType  pnGetInt32Attr;
+        ABCC_STR_Get_AttrFuncType    pnGetStrAttr;
+        ABCC_UINT8_Set_AttrFuncType  pnSetUint8Attr;
     }uCbx;
     union
     {

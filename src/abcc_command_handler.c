@@ -57,87 +57,137 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
    /*
    ** For any unhandled Msg look for a handler in the table.
    */
-    if( ( ABCC_GetMsgCmdBits(psReceivedMsg) == ABP_CMD_GET_ATTR ) &&
-        ( ABCC_GetMsgInstance(psReceivedMsg) == 1 ) )
-    {
-        const attr_lookup_type* pFoundEntry = NULL;
+   if( ( ABCC_GetMsgCmdBits( psReceivedMsg ) == ABP_CMD_GET_ATTR ) &&
+       ( ABCC_GetMsgInstance( psReceivedMsg ) == 1 ) )
+   {
+      const attr_lookup_type* pFoundEntry = NULL;
 
-        UINT8  bDestObj  = ABCC_GetMsgDestObj(psReceivedMsg);
-        UINT8  bAttr     = ABCC_GetMsgCmdExt0(psReceivedMsg);
+      UINT8  bDestObj  = ABCC_GetMsgDestObj( psReceivedMsg );
+      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psReceivedMsg );
 
-        for( size_t i = 0; i < sizeof(attribute_table) / sizeof(attr_lookup_type); i++ )
-        {
-            const attr_lookup_type*  pEntry = &attribute_table[i];
-            if( ( bDestObj  == pEntry->bObject ) &&
-                ( bAttr     == pEntry->bAttribute ) )
+      for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
+      {
+         const attr_lookup_type*  pEntry = &attribute_table[i];
+         if( ( bDestObj  == pEntry->bObject ) &&
+             ( bAttr     == pEntry->bAttribute ) &&
+             ( ABP_CMD_GET_ATTR == pEntry->bCommand ) )
+         {
+            ABCC_LOG_INFO( "Attribute handler found\n" );
+            pFoundEntry = pEntry;
+            break;
+         }
+      }
+
+      if (pFoundEntry)
+      {
+         switch( pFoundEntry->eServiceTag )
+         {
+         case SERVICE_INT8:
+         case SERVICE_UINT8:
+            ABCC_SetMsgData8(
+               psReceivedMsg,
+               pFoundEntry->uCbx.pnGetUint8Attr ?
+                  pFoundEntry->uCbx.pnGetUint8Attr() :
+                  pFoundEntry->uData.bUnsigned8,
+               0 );
+            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT8_SIZEOF );
+            ABCC_SendRespMsg( psReceivedMsg );
+            return;
+
+         case SERVICE_INT16:
+         case SERVICE_UINT16:
+            ABCC_SetMsgData16(
+               psReceivedMsg,
+               pFoundEntry->uCbx.pnGetUint16Attr ?
+                  pFoundEntry->uCbx.pnGetUint16Attr() :
+                  pFoundEntry->uData.iUnsigned16,
+               0 );
+            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT16_SIZEOF );
+            ABCC_SendRespMsg( psReceivedMsg );
+            return;
+
+         case SERVICE_INT32:
+         case SERVICE_UINT32:
+            ABCC_SetMsgData32(
+               psReceivedMsg,
+               pFoundEntry->uCbx.pnGetUint32Attr ?
+                  pFoundEntry->uCbx.pnGetUint32Attr() :
+                  pFoundEntry->uData.lUnsigned32,
+               0 );
+            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT32_SIZEOF );
+            ABCC_SendRespMsg( psReceivedMsg );
+            return;
+
+         case SERVICE_STR:
             {
-               ABCC_LOG_INFO( "Attribute handler found\n" );
-               pFoundEntry = pEntry;
-               break;
+               UINT16 iStrLength;
+
+               if( pFoundEntry->uCbx.pnGetStrAttr )
+               {
+                  iStrLength = pFoundEntry->uCbx.pnGetStrAttr(
+                     (char*)ABCC_GetMsgDataPtr( psReceivedMsg ),
+                     ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
+                     pFoundEntry->uData.iAttrMaxDataSize ) );
+               }
+               else
+               {
+                  const char* pStr = pFoundEntry->uData.pacString;
+                  iStrLength = ( UINT16 )strlen( pStr );
+                  ABCC_SetMsgString( psReceivedMsg,
+                                     pStr,
+                                     iStrLength,
+                                     0 );
+               }
+
+               ABP_SetMsgResponse( psReceivedMsg, iStrLength );
+               ABCC_SendRespMsg( psReceivedMsg );
+               return;
             }
-        }
+         }
 
-        if (pFoundEntry)
-        {
-           switch( pFoundEntry->eServiceTag )
-           {
-           case SERVICE_INT16:
-           case SERVICE_UINT16:
-              ABCC_SetMsgData16(
-                 psReceivedMsg,
-                 pFoundEntry->uCbx.pnGetUint16Attr ?
-                    pFoundEntry->uCbx.pnGetUint16Attr() :
-                    pFoundEntry->uData.iUnsigned16,
-                 0 );
-              ABP_SetMsgResponse( psReceivedMsg, ABP_UINT16_SIZEOF );
-              ABCC_SendRespMsg( psReceivedMsg );
-              return;
+         ABCC_LOG_FATAL(
+            ABCC_EC_INTERNAL_ERROR,
+            pFoundEntry->eServiceTag,
+            "Missing attribute handler implementation\n" );
+      }
+   }
+   else 
+   if( ( ABCC_GetMsgCmdBits( psReceivedMsg ) == ABP_CMD_SET_ATTR ) &&
+       ( ABCC_GetMsgInstance( psReceivedMsg ) == 1 ) )
+   {
+      const attr_lookup_type* pFoundEntry = NULL;
 
-           case SERVICE_INT32:
-           case SERVICE_UINT32:
-              ABCC_SetMsgData32(
-                 psReceivedMsg,
-                 pFoundEntry->uCbx.pnGetUint32Attr ?
-                    pFoundEntry->uCbx.pnGetUint32Attr() :
-                    pFoundEntry->uData.lUnsigned32,
-                 0 );
-              ABP_SetMsgResponse( psReceivedMsg, ABP_UINT32_SIZEOF );
-              ABCC_SendRespMsg( psReceivedMsg );
-              return;
+      UINT8  bDestObj  = ABCC_GetMsgDestObj( psReceivedMsg );
+      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psReceivedMsg );
 
-           case SERVICE_STR:
-              {
-                 UINT16 iStrLength;
+      for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
+      {
+         const attr_lookup_type*  pEntry = &attribute_table[i];
+         if( ( bDestObj == pEntry->bObject ) &&
+             ( bAttr    == pEntry->bAttribute ) &&
+             ( ABP_CMD_SET_ATTR == pEntry->bCommand ) )
+         {
+            ABCC_LOG_INFO( "Attribute handler found\n" );
+            pFoundEntry = pEntry;
+            break;
+         }
+      }
 
-                 if( pFoundEntry->uCbx.pnGetStrAttr )
-                 {
-                    iStrLength = pFoundEntry->uCbx.pnGetStrAttr(
-                       (char*)ABCC_GetMsgDataPtr( psReceivedMsg ),
-                       ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
-                                      pFoundEntry->uData.iAttrMaxDataSize ) );
-                 }
-                 else
-                 {
-                    const char* pStr = pFoundEntry->uData.pacString;
-                    iStrLength = (UINT16)strlen(pStr);
-                    ABCC_SetMsgString( psReceivedMsg,
-                                       pStr,
-                                       iStrLength,
-                                       0 );
-                 }
-
-                 ABP_SetMsgResponse( psReceivedMsg, iStrLength );
-                 ABCC_SendRespMsg( psReceivedMsg );
-                 return;
-              }
-           }
-
-           ABCC_LOG_FATAL(
-              ABCC_EC_INTERNAL_ERROR,
-              pFoundEntry->eServiceTag,
-              "Missing attribute handler implementation\n");
-        }
-    }
+      if (pFoundEntry)
+      {
+         switch( pFoundEntry->eServiceTag )
+         {
+         case SERVICE_INT8:
+         case SERVICE_UINT8:
+            UINT8 bValue = 0;
+            ABCC_GetMsgData8( psReceivedMsg, (UINT8*)&bValue, 0 );
+            pFoundEntry->uCbx.pnSetUint8Attr( bValue );
+            ABP_SetMsgResponse( psReceivedMsg, 0 );
+            ABCC_SendRespMsg( psReceivedMsg );
+            return;
+         }
+      }
+   }
 
 
 
