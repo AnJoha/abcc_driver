@@ -25,8 +25,8 @@
 #define ABCC_APPLICATION_OBJ_PRODUCT_NAME_GET_VALUE(x) {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_PRODUCT_NAME, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_STR,    .uData.pacString      = (x)}
 #define ABCC_APPLICATION_OBJ_PRODUCT_NAME_GET_CBFUNC   {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_PRODUCT_NAME, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_STR,    .uCbx.pnGetStrAttr    = ABCC_ImplApplicationObjProductName_Get,       .uData.iAttrMaxDataSize = ABP_APP_IA_PRODUCT_NAME_MAX_DS }
 
-#define ABCC_APPLICATION_OBJ_FW_AVAILABLE_GET_CBFUNC     {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_FW_AVAILABLE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT8,  .uCbx.pnGetStrAttr    = ABCC_ImplApplicationObjFirmwareAvailable_Get, .uData.iAttrMaxDataSize = ABP_APP_IA_FW_AVAILABLE_DS }
-#define ABCC_APPLICATION_OBJ_FW_AVAILABLE_SET_CBFUNC   {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_FW_AVAILABLE, .bCommand = ABP_CMD_SET_ATTR, .eServiceTag = SERVICE_UINT8,  .uCbx.pnGetStrAttr    = ABCC_ImplApplicationObjFirmwareAvailable_Set, .uData.iAttrMaxDataSize = ABP_APP_IA_FW_AVAILABLE_DS }
+#define ABCC_APPLICATION_OBJ_FW_AVAILABLE_GET_CBFUNC   {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_FW_AVAILABLE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT8,  .uCbx.pnGetUint8Attr  = ABCC_ImplApplicationObjFirmwareAvailable_Get, .uData.iAttrMaxDataSize = ABP_APP_IA_FW_AVAILABLE_DS }
+#define ABCC_APPLICATION_OBJ_FW_AVAILABLE_SET_CBFUNC   {.bObject = ABP_OBJ_NUM_APP, .bAttribute = ABP_APP_IA_FW_AVAILABLE, .bCommand = ABP_CMD_SET_ATTR, .eServiceTag = SERVICE_UINT8,  .uCbx.pnSetUint8Attr  = ABCC_ImplApplicationObjFirmwareAvailable_Set, .uData.iAttrMaxDataSize = ABP_APP_IA_FW_AVAILABLE_DS }
 
 /* EtherNet/IP Host Object, 248 */
 #define ABCC_ETHERNETIP_OBJ_VENDOR_ID_GET_VALUE(x)   {.bObject = ABP_OBJ_NUM_EIP, .bAttribute = ABP_EIP_IA_VENDOR_ID, .bCommand = ABP_CMD_GET_ATTR,   .eServiceTag = SERVICE_UINT16, .uData.iUnsigned16    = (x)}
