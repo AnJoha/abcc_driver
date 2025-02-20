@@ -1,13 +1,36 @@
 # abcc_driver
 This is a first test of having the Anybus CompactCom Driver as a GitHub repository.
 
-To see examples of how it can be used in a project, go to [starter_kit_example](https://github.com/AnJoha/starter_kit_example).
+To see examples of how it can be used in a project, go to [starter_kit_example/](https://github.com/AnJoha/starter_kit_example).
+
+## Add as submodule (instead of cloning)
+
+### Add this repo as a submodule
+
+*It's suggested to add the repository as a submodule in your projects `lib/` folder.*
+```
+git submodule add https://github.com/AnJoha/abcc_driver.git lib/abcc_driver
+```
+This repository already contains another "nested" submodule ([abcc_abp/](https://github.com/AnJoha/abcc_abp)) that must be initialized. Therefore, go to the path of abcc_driver/ and initialize abcc_abp/.
+```
+cd lib/abcc_driver
+```
+```
+git submodule update --init --recursive
+```
+Go back to your git repository and stage the new submodules, otherwise they will only be linked locally on your machine.
+```
+cd ../../
+```
+```
+git add .gitmodules lib/abcc_driver
+```
 
 ## Cloning
 
 ### Use the flag
 
-This repository contains a submodule ([abcc_abp](https://github.com/AnJoha/abcc_abp)) that must be initialized. Therefore, pass the flag `--recurse-submodules` when cloning.
+This repository contains a submodule ([abcc_abp/](https://github.com/AnJoha/abcc_abp)) that must be initialized. Therefore, pass the flag `--recurse-submodules` when cloning.
 
 *It's suggested to clone the repository into your projects `lib/` folder.*
 ```
