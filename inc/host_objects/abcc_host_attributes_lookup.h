@@ -35,7 +35,6 @@
 #define ABCC_ETHERNETIP_OBJ_DEVICE_TYPE_GET_VALUE(x) {.bObject = ABP_OBJ_NUM_EIP, .bAttribute = ABP_EIP_IA_DEVICE_TYPE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT16, .uData.iUnsigned16    = (x)}
 #define ABCC_ETHERNETIP_OBJ_DEVICE_TYPE_GET_CBFUNC   {.bObject = ABP_OBJ_NUM_EIP, .bAttribute = ABP_EIP_IA_DEVICE_TYPE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT16, .uCbx.pnGetUint16Attr = ABCC_ImplEthernetIpObjDeviceType_Get}
 
-
 #define ABCC_ETHERNETIP_OBJ_PRODUCT_CODE_GET_VALUE(x) {.bObject = ABP_OBJ_NUM_EIP, .bAttribute = ABP_EIP_IA_PRODUCT_CODE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT16, .uData.iUnsigned16    = (x)}
 #define ABCC_ETHERNETIP_OBJ_PRODUCT_CODE_GET_CBFUNC   {.bObject = ABP_OBJ_NUM_EIP, .bAttribute = ABP_EIP_IA_PRODUCT_CODE, .bCommand = ABP_CMD_GET_ATTR, .eServiceTag = SERVICE_UINT16, .uCbx.pnGetUint16Attr = ABCC_ImplEthernetIpObjProductCode_Get}
 
@@ -52,7 +51,7 @@
 
 /*------------------------------------------------------------------------------
 ** Predefined callback function prototypes used by attribute_table.
-** **------------------------------------------------------------------------------
+**------------------------------------------------------------------------------
 */
 /* Application object, 255*/
 UINT32 ABCC_ImplApplicationObjSerialNum_Get( void );
@@ -61,13 +60,10 @@ UINT16 ABCC_ImplApplicationObjProductName_Get( char* pPackedStrDest, UINT16 iBuf
 UINT8 ABCC_ImplApplicationObjFirmwareAvailable_Get( void );
 void ABCC_ImplApplicationObjFirmwareAvailable_Set( UINT8 bValue );
 
-
-
 /* EtherNet/IP Host Object, 248 */
 UINT16 ABCC_ImplEthernetIpObjVendorId_Get( void );
 UINT16 ABCC_ImplEthernetIpObjDeviceType_Get( void );
 UINT16 ABCC_ImplEthernetIpObjProductCode_Get( void );
-
 
 /* Profinet IO object, 246 */
 UINT16 ABCC_ImplProfinetIoObjDeviceId_Get( void );

@@ -11,8 +11,6 @@
 #include "abcc_command_handler.h"
 #include "host_objects/abcc_host_attributes_lookup.h"
 
-
-
 #include "host_objects/application_data_object.h"
 #include "host_objects/application_object.h"
 #include "host_objects/assembly_mapping_object.h"
@@ -35,35 +33,31 @@
 #include "host_objects/network_objects/profibus_dpv1_object.h"
 #include "host_objects/network_objects/profinet_io_object.h"
 
-
 #define ABCC_MATH_MIN( nX, nY )   ( ( (nX) < (nY) ) ? (nX) : (nY) )
 
-
-#ifdef ATTRIBUTE_RESPONSE_LIST
-static const attr_lookup_type attribute_table[] = ATTRIBUTE_RESPONSE_LIST;
-#else
-static const attr_lookup_type attribute_table[] = {};
+#ifdef ABCC_CFG_COMMAND_RESPONSE_LIST
+static const attr_lookup_type attribute_table[] = ABCC_CFG_COMMAND_RESPONSE_LIST;
 #endif
 
-void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
+void ABCC_HandleCommandMessage( ABP_MsgType* psCommandMessage )
 {
-#if ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED
-   if( ABCC_CbfReceiveMsg( psReceivedMsg ) )
+#if ABCC_CFG_CATCH_COMMAND_MESSAGES_ENABLED
+   if( ABCC_CbfCatchCommandMessage( psCommandMessage ) )
    {
       return;
    }
 #endif
-
+#ifdef ABCC_CFG_COMMAND_RESPONSE_LIST
    /*
    ** For any unhandled Msg look for a handler in the table.
    */
-   if( ( ABCC_GetMsgCmdBits( psReceivedMsg ) == ABP_CMD_GET_ATTR ) &&
-       ( ABCC_GetMsgInstance( psReceivedMsg ) == 1 ) )
+   if( ( ABCC_GetMsgCmdBits( psCommandMessage ) == ABP_CMD_GET_ATTR ) &&
+       ( ABCC_GetMsgInstance( psCommandMessage ) == 1 ) )
    {
       const attr_lookup_type* pFoundEntry = NULL;
 
-      UINT8  bDestObj  = ABCC_GetMsgDestObj( psReceivedMsg );
-      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psReceivedMsg );
+      UINT8  bDestObj  = ABCC_GetMsgDestObj( psCommandMessage );
+      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psCommandMessage );
 
       for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
       {
@@ -74,7 +68,7 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
          {
             ABCC_LOG_INFO( "Attribute handler found\n" );
             pFoundEntry = pEntry;
-            break;
+            break;  
          }
       }
 
@@ -85,37 +79,37 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
          case SERVICE_INT8:
          case SERVICE_UINT8:
             ABCC_SetMsgData8(
-               psReceivedMsg,
+               psCommandMessage,
                pFoundEntry->uCbx.pnGetUint8Attr ?
                   pFoundEntry->uCbx.pnGetUint8Attr() :
                   pFoundEntry->uData.bUnsigned8,
                0 );
-            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT8_SIZEOF );
-            ABCC_SendRespMsg( psReceivedMsg );
+            ABP_SetMsgResponse( psCommandMessage, ABP_UINT8_SIZEOF );
+            ABCC_SendRespMsg( psCommandMessage );
             return;
 
          case SERVICE_INT16:
          case SERVICE_UINT16:
             ABCC_SetMsgData16(
-               psReceivedMsg,
+               psCommandMessage,
                pFoundEntry->uCbx.pnGetUint16Attr ?
                   pFoundEntry->uCbx.pnGetUint16Attr() :
                   pFoundEntry->uData.iUnsigned16,
                0 );
-            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT16_SIZEOF );
-            ABCC_SendRespMsg( psReceivedMsg );
+            ABP_SetMsgResponse( psCommandMessage, ABP_UINT16_SIZEOF );
+            ABCC_SendRespMsg( psCommandMessage );
             return;
 
          case SERVICE_INT32:
          case SERVICE_UINT32:
             ABCC_SetMsgData32(
-               psReceivedMsg,
+               psCommandMessage,
                pFoundEntry->uCbx.pnGetUint32Attr ?
                   pFoundEntry->uCbx.pnGetUint32Attr() :
                   pFoundEntry->uData.lUnsigned32,
                0 );
-            ABP_SetMsgResponse( psReceivedMsg, ABP_UINT32_SIZEOF );
-            ABCC_SendRespMsg( psReceivedMsg );
+            ABP_SetMsgResponse( psCommandMessage, ABP_UINT32_SIZEOF );
+            ABCC_SendRespMsg( psCommandMessage );
             return;
 
          case SERVICE_STR:
@@ -125,7 +119,7 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
                if( pFoundEntry->uCbx.pnGetStrAttr )
                {
                   iStrLength = pFoundEntry->uCbx.pnGetStrAttr(
-                     (char*)ABCC_GetMsgDataPtr( psReceivedMsg ),
+                     (char*)ABCC_GetMsgDataPtr( psCommandMessage ),
                      ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
                      pFoundEntry->uData.iAttrMaxDataSize ) );
                }
@@ -133,14 +127,14 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
                {
                   const char* pStr = pFoundEntry->uData.pacString;
                   iStrLength = ( UINT16 )strlen( pStr );
-                  ABCC_SetMsgString( psReceivedMsg,
+                  ABCC_SetMsgString( psCommandMessage,
                                      pStr,
                                      iStrLength,
                                      0 );
                }
 
-               ABP_SetMsgResponse( psReceivedMsg, iStrLength );
-               ABCC_SendRespMsg( psReceivedMsg );
+               ABP_SetMsgResponse( psCommandMessage, iStrLength );
+               ABCC_SendRespMsg( psCommandMessage );
                return;
             }
          }
@@ -151,14 +145,14 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
             "Missing attribute handler implementation\n" );
       }
    }
-   else 
-   if( ( ABCC_GetMsgCmdBits( psReceivedMsg ) == ABP_CMD_SET_ATTR ) &&
-       ( ABCC_GetMsgInstance( psReceivedMsg ) == 1 ) )
+   else
+   if( ( ABCC_GetMsgCmdBits( psCommandMessage ) == ABP_CMD_SET_ATTR ) &&
+       ( ABCC_GetMsgInstance( psCommandMessage ) == 1 ) )
    {
       const attr_lookup_type* pFoundEntry = NULL;
 
-      UINT8  bDestObj  = ABCC_GetMsgDestObj( psReceivedMsg );
-      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psReceivedMsg );
+      UINT8  bDestObj  = ABCC_GetMsgDestObj( psCommandMessage );
+      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psCommandMessage );
 
       for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
       {
@@ -180,145 +174,143 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg )
          case SERVICE_INT8:
          case SERVICE_UINT8:
             UINT8 bValue = 0;
-            ABCC_GetMsgData8( psReceivedMsg, (UINT8*)&bValue, 0 );
+            ABCC_GetMsgData8( psCommandMessage, (UINT8*)&bValue, 0 );
             pFoundEntry->uCbx.pnSetUint8Attr( bValue );
-            ABP_SetMsgResponse( psReceivedMsg, 0 );
-            ABCC_SendRespMsg( psReceivedMsg );
+            ABP_SetMsgResponse( psCommandMessage, 0 );
+            ABCC_SendRespMsg( psCommandMessage );
             return;
          }
       }
    }
-
-
-
-   switch( ABCC_GetMsgDestObj( psReceivedMsg ) )
+#endif
+   switch( ABCC_GetMsgDestObj( psCommandMessage ) )
    {
 #if MQTT_OBJ_ENABLE
    case ABP_OBJ_NUM_MQTT:
 
-      MQTT_ProcessCmdMsg( psReceivedMsg );
+      MQTT_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if OPCUA_OBJ_ENABLE
    case ABP_OBJ_NUM_OPCUA:
 
-      OPCUA_ProcessCmdMsg( psReceivedMsg );
+      OPCUA_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if SAFE_OBJ_ENABLE
    case ABP_OBJ_NUM_SAFE:
 
-      SAFE_ProcessCmdMsg( psReceivedMsg );
+      SAFE_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if EPL_OBJ_ENABLE
    case ABP_OBJ_NUM_EPL:
 
-      EPL_ProcessCmdMsg( psReceivedMsg );
+      EPL_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if EIP_OBJ_ENABLE
    case ABP_OBJ_NUM_EIP:
 
-      EIP_ProcessCmdMsg( psReceivedMsg );
+      EIP_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if PRT_OBJ_ENABLE
    case ABP_OBJ_NUM_PNIO:
 
-      PRT_ProcessCmdMsg( psReceivedMsg );
+      PRT_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if DPV1_OBJ_ENABLE
    case ABP_OBJ_NUM_DPV1:
 
-      DPV1_ProcessCmdMsg( psReceivedMsg );
+      DPV1_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if DEV_OBJ_ENABLE
    case ABP_OBJ_NUM_DEV:
 
-      DEV_ProcessCmdMsg( psReceivedMsg );
+      DEV_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if MOD_OBJ_ENABLE
    case ABP_OBJ_NUM_MOD:
 
-      MOD_ProcessCmdMsg( psReceivedMsg );
+      MOD_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if COP_OBJ_ENABLE
    case ABP_OBJ_NUM_COP:
 
-      COP_ProcessCmdMsg( psReceivedMsg );
+      COP_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if ETN_OBJ_ENABLE
    case ABP_OBJ_NUM_ETN:
 
-      ETN_ProcessCmdMsg( psReceivedMsg );
+      ETN_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if ECT_OBJ_ENABLE
    case ABP_OBJ_NUM_ECT:
 
-      ECT_ProcessCmdMsg( psReceivedMsg );
+      ECT_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
    case ABP_OBJ_NUM_APPD:
 
-      AD_ProcObjectRequest( psReceivedMsg );
+      AD_ProcObjectRequest( psCommandMessage );
       break;
 
 #if APP_OBJ_ENABLE
    case ABP_OBJ_NUM_APP:
 
-      APP_ProcessCmdMsg( psReceivedMsg );
+      APP_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if SYNC_OBJ_ENABLE
    case ABP_OBJ_NUM_SYNC:
 
-      SYNC_ProcessCmdMsg( psReceivedMsg );
+      SYNC_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if CCL_OBJ_ENABLE
    case ABP_OBJ_NUM_CCL:
 
-      CCL_ProcessCmdMsg( psReceivedMsg );
+      CCL_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if CFN_OBJ_ENABLE
    case ABP_OBJ_NUM_CFN:
 
-      CFN_ProcessCmdMsg( psReceivedMsg );
+      CFN_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if CIET_OBJ_ENABLE
    case ABP_OBJ_NUM_CIET:
 
-      CIET_ProcessCmdMsg(psReceivedMsg);
+      CIET_ProcessCmdMsg(psCommandMessage);
       break;
 #endif
 #if ASM_OBJ_ENABLE
    case ABP_OBJ_NUM_ASM:
 
-      ASM_ProcessCmdMsg( psReceivedMsg );
+      ASM_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
 #if BAC_OBJ_ENABLE
    case ABP_OBJ_NUM_BAC:
 
-      BAC_ProcessCmdMsg( psReceivedMsg );
+      BAC_ProcessCmdMsg( psCommandMessage );
       break;
 #endif
    default:
 
       /*
-      ** We have received a command to an unsupported object.
+      ** A command to an unsupported object is received.
       */
-      ABP_SetMsgErrorResponse( psReceivedMsg, 1, ABP_ERR_UNSUP_OBJ );
-      ABCC_SendRespMsg( psReceivedMsg );
+      ABP_SetMsgErrorResponse( psCommandMessage, 1, ABP_ERR_UNSUP_OBJ );
+      ABCC_SendRespMsg( psCommandMessage );
       break;
    }
 }

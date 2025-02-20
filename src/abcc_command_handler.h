@@ -12,7 +12,6 @@
 
 #include "abp.h"
 
-
 /*------------------------------------------------------------------------------
 ** Definitions and prototypes for attribute lookup table.
 **------------------------------------------------------------------------------
@@ -60,6 +59,12 @@ typedef struct
         ABCC_INT32_Get_AttrFuncType  pnGetInt32Attr;
         ABCC_STR_Get_AttrFuncType    pnGetStrAttr;
         ABCC_UINT8_Set_AttrFuncType  pnSetUint8Attr;
+        ABCC_INT8_Set_AttrFuncType   pnSetInt8Attr;
+        ABCC_UINT16_Set_AttrFuncType pnSetUint16Attr;
+        ABCC_INT16_Set_AttrFuncType  pnSetInt16Attr;
+        ABCC_UINT32_Set_AttrFuncType pnSetUint32Attr;
+        ABCC_INT32_Set_AttrFuncType  pnSetInt32Attr;
+        ABCC_STR_Set_AttrFuncType    pnSetStrAttr;
     }uCbx;
     union
     {
@@ -79,12 +84,12 @@ typedef struct
 ** Handle messages with the command bit set received from the ABCC.
 **------------------------------------------------------------------------------
 ** Arguments:
-**    psReceivedMsg - Received message.
+**    psCommandMessage - Received message.
 **
 ** Returns:
 **    None
 **------------------------------------------------------------------------------
 */
-EXTFUNC void ABCC_HandleCommandMessage( ABP_MsgType* psReceivedMsg );
+EXTFUNC void ABCC_HandleCommandMessage( ABP_MsgType* psCommandMessage );
 
 #endif

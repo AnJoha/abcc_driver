@@ -880,18 +880,18 @@ ABCC_CFG_DRV_PARALLEL_ENABLED and ABCC_CFG_MEMORY_MAPPED_ACCESS_ENABLED are enab
 #endif
 
 /*------------------------------------------------------------------------------
-** #define ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED   1 - Enable / 0 - Disable
+** #define ABCC_CFG_CATCH_COMMAND_MESSAGES_ENABLED   1 - Enable / 0 - Disable
 **
 ** Allows the user to handle ABCC commands before the default handler. This can
 ** be used to implement custom handling of an attribute or a complete object.
 ** The invoked callback function may also opt to let the default handler take
 ** care of the command.
 **
-** ABCC_CbfReceiveMsg() must be implemented if this is enabled.
+** ABCC_CbfCatchCommandMessage() must be implemented if this is enabled.
 **------------------------------------------------------------------------------
 */
-#ifndef ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED
-   #define ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED 0
+#ifndef ABCC_CFG_CATCH_COMMAND_MESSAGES_ENABLED
+   #define ABCC_CFG_CATCH_COMMAND_MESSAGES_ENABLED 0
 #endif
 
 #endif  /* inclusion lock */

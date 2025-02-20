@@ -1222,7 +1222,7 @@ EXTFUNC void ABCC_CbfSyncIsr( void );
 */
 EXTFUNC void ABCC_CbfUserInitReq( void );
 
-#if ABCC_CFG_PRE_PROCESS_READ_MESSAGES_ENABLED
+#if ABCC_CFG_CATCH_COMMAND_MESSAGES_ENABLED
 /*------------------------------------------------------------------------------
 ** A message has been received from the ABCC. If enabled all received commands
 ** from the ABCC will be passed to this function before handled by the default
@@ -1231,7 +1231,7 @@ EXTFUNC void ABCC_CbfUserInitReq( void );
 ** Regarding callback context, see comment for callback section above.
 **------------------------------------------------------------------------------
 ** Arguments:
-**    psReceivedMsg - Pointer to received message.
+**    psCommandMessage - Pointer to received message.
 **
 ** Returns:
 **    TRUE -  Message handled by the callback function (this typically means
@@ -1240,7 +1240,7 @@ EXTFUNC void ABCC_CbfUserInitReq( void );
 **            message handler handle the message.
 **------------------------------------------------------------------------------
 */
-EXTFUNC BOOL ABCC_CbfReceiveMsg( ABP_MsgType* psReceivedMsg );
+EXTFUNC BOOL ABCC_CbfCatchCommandMessage( ABP_MsgType* psCommandMessage );
 #endif
 
 /*------------------------------------------------------------------------------
