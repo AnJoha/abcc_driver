@@ -9,7 +9,7 @@
 
 #include "abcc.h"
 #include "abcc_command_handler.h"
-#include "host_objects/abcc_host_attributes_lookup.h"
+#include "host_objects/abcc_command_handler_lookup.h"
 
 #include "host_objects/application_data_object.h"
 #include "host_objects/application_object.h"
@@ -36,8 +36,111 @@
 #define ABCC_MATH_MIN( nX, nY )   ( ( (nX) < (nY) ) ? (nX) : (nY) )
 
 #ifdef ABCC_CFG_COMMAND_RESPONSE_LIST
-static const attr_lookup_type attribute_table[] = ABCC_CFG_COMMAND_RESPONSE_LIST;
+static const Command_Handler_Lookup_Type command_handler_lookup_table[] = { ABCC_CFG_OBJ_COMMAND_RESPONSE_LIST, 
+                                                    ABCC_CFG_COMMAND_RESPONSE_LIST };
 #endif
+
+static void GetAttributeHandler( ABP_MsgType* psCommandMessage, Command_Handler_Lookup_Type* psEntry )
+{
+   switch( psEntry->eServiceTag )
+   {
+      case SERVICE_INT8:
+      case SERVICE_UINT8:
+         ABCC_SetMsgData8( psCommandMessage,
+                           psEntry->uCbx.pnGetUint8Attr ?
+                           psEntry->uCbx.pnGetUint8Attr() :
+                           psEntry->uData.bUnsigned8,
+                           0 );
+         ABP_SetMsgResponse( psCommandMessage, ABP_UINT8_SIZEOF );
+         ABCC_SendRespMsg( psCommandMessage );
+         return;
+      case SERVICE_INT16:
+      case SERVICE_UINT16:
+         ABCC_SetMsgData16( psCommandMessage,
+                            psEntry->uCbx.pnGetUint16Attr ?
+                            psEntry->uCbx.pnGetUint16Attr() :
+                            psEntry->uData.iUnsigned16,
+                            0 );
+         ABP_SetMsgResponse( psCommandMessage, ABP_UINT16_SIZEOF );
+         ABCC_SendRespMsg( psCommandMessage );
+         return;
+      case SERVICE_INT32:
+      case SERVICE_UINT32:
+         ABCC_SetMsgData32( psCommandMessage,
+                            psEntry->uCbx.pnGetUint32Attr ?
+                            psEntry->uCbx.pnGetUint32Attr() :
+                            psEntry->uData.lUnsigned32,
+                            0 );
+         ABP_SetMsgResponse( psCommandMessage, ABP_UINT32_SIZEOF );
+         ABCC_SendRespMsg( psCommandMessage );
+         return;
+      case SERVICE_STR:
+      {
+         UINT16 iStrLength;
+         if( psEntry->uCbx.pnGetStrAttr )
+         {
+            iStrLength = psEntry->uCbx.pnGetStrAttr( (char*)ABCC_GetMsgDataPtr( psCommandMessage ),
+                                                     ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
+                                                     psEntry->uData.iAttrMaxDataSize ) );
+         }
+         else
+         {
+            const char* pStr = psEntry->uData.pacString;
+            iStrLength = ( UINT16 )strlen( pStr );
+            ABCC_SetMsgString( psCommandMessage,
+                               pStr,
+                               iStrLength,
+                               0 );
+         }
+         ABP_SetMsgResponse( psCommandMessage, iStrLength );
+         ABCC_SendRespMsg( psCommandMessage );
+         return;
+      }
+      default:
+         ABCC_LOG_ERROR( ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)psEntry->eServiceTag, "Response to Get_Attribute command not possible (unsupported datatype).\n" );
+         break;
+   }
+}
+
+static void SetAttributeHandler( ABP_MsgType* psCommandMessage, Command_Handler_Lookup_Type* psEntry )
+{
+    switch ( psEntry->eServiceTag )
+    {
+    case SERVICE_INT8:
+    case SERVICE_UINT8:
+        UINT8 bValue = 0;
+        ABCC_GetMsgData8( psCommandMessage, &bValue, 0 );
+        psEntry->uCbx.pnSetUint8Attr( bValue );
+        ABP_SetMsgResponse( psCommandMessage, 0 );
+        ABCC_SendRespMsg( psCommandMessage );
+        return;
+    case SERVICE_INT16:
+    case SERVICE_UINT16:
+        UINT16 iValue = 0;
+        ABCC_GetMsgData16( psCommandMessage, &iValue, 0 );
+        psEntry->uCbx.pnSetUint8Attr( iValue );
+        ABP_SetMsgResponse( psCommandMessage, 0 );
+        ABCC_SendRespMsg( psCommandMessage );
+        return;
+    case SERVICE_INT32:
+    case SERVICE_UINT32:
+        UINT32 lValue = 0;
+        ABCC_GetMsgData32( psCommandMessage, &lValue, 0 );
+        psEntry->uCbx.pnSetUint8Attr( lValue );
+        ABP_SetMsgResponse( psCommandMessage, 0 );
+        ABCC_SendRespMsg( psCommandMessage );
+        return;
+    case SERVICE_STR:
+        psEntry->uCbx.pnSetStrAttr(
+           (char*)ABCC_GetMsgDataPtr( psCommandMessage ),
+           ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
+           psEntry->uData.iAttrMaxDataSize ) );
+        return;
+    default:
+      ABCC_LOG_ERROR( ABCC_EC_UNSUPPORTED_DATA_TYPE, (UINT32)psEntry->eServiceTag, "Unsupported Set_Attribute datatype.\n" );
+      break;
+    }
+}
 
 void ABCC_HandleCommandMessage( ABP_MsgType* psCommandMessage )
 {
@@ -48,137 +151,44 @@ void ABCC_HandleCommandMessage( ABP_MsgType* psCommandMessage )
    }
 #endif
 #ifdef ABCC_CFG_COMMAND_RESPONSE_LIST
-   /*
-   ** For any unhandled Msg look for a handler in the table.
-   */
-   if( ( ABCC_GetMsgCmdBits( psCommandMessage ) == ABP_CMD_GET_ATTR ) &&
-       ( ABCC_GetMsgInstance( psCommandMessage ) == 1 ) )
+
+const Command_Handler_Lookup_Type* psFoundEntry = NULL;
+
+   UINT8 bDestObj      = ABCC_GetMsgDestObj( psCommandMessage );
+   UINT8 bInst         = ABCC_GetMsgInstance( psCommandMessage );
+   ABP_MsgCmdType bCmd = ABCC_GetMsgCmdBits( psCommandMessage );
+
+   if( bDestObj != ABP_OBJ_NUM_APPD )
    {
-      const attr_lookup_type* pFoundEntry = NULL;
-
-      UINT8  bDestObj  = ABCC_GetMsgDestObj( psCommandMessage );
-      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psCommandMessage );
-
-      for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
+      for( size_t i = 0; i < sizeof( command_handler_lookup_table ) / sizeof( Command_Handler_Lookup_Type ); i++ )
       {
-         const attr_lookup_type*  pEntry = &attribute_table[i];
-         if( ( bDestObj  == pEntry->bObject ) &&
-             ( bAttr     == pEntry->bAttribute ) &&
-             ( ABP_CMD_GET_ATTR == pEntry->bCommand ) )
+         const Command_Handler_Lookup_Type*  psEntry = &command_handler_lookup_table[i];
+         if( ( bDestObj == psEntry->bObject ) &&
+             ( bInst    == psEntry->bInstance ) &&
+             ( bCmd     == psEntry->bCommand ) )
          {
-            ABCC_LOG_INFO( "Attribute handler found\n" );
-            pFoundEntry = pEntry;
-            break;  
-         }
-      }
-
-      if (pFoundEntry)
-      {
-         switch( pFoundEntry->eServiceTag )
-         {
-         case SERVICE_INT8:
-         case SERVICE_UINT8:
-            ABCC_SetMsgData8(
-               psCommandMessage,
-               pFoundEntry->uCbx.pnGetUint8Attr ?
-                  pFoundEntry->uCbx.pnGetUint8Attr() :
-                  pFoundEntry->uData.bUnsigned8,
-               0 );
-            ABP_SetMsgResponse( psCommandMessage, ABP_UINT8_SIZEOF );
-            ABCC_SendRespMsg( psCommandMessage );
-            return;
-
-         case SERVICE_INT16:
-         case SERVICE_UINT16:
-            ABCC_SetMsgData16(
-               psCommandMessage,
-               pFoundEntry->uCbx.pnGetUint16Attr ?
-                  pFoundEntry->uCbx.pnGetUint16Attr() :
-                  pFoundEntry->uData.iUnsigned16,
-               0 );
-            ABP_SetMsgResponse( psCommandMessage, ABP_UINT16_SIZEOF );
-            ABCC_SendRespMsg( psCommandMessage );
-            return;
-
-         case SERVICE_INT32:
-         case SERVICE_UINT32:
-            ABCC_SetMsgData32(
-               psCommandMessage,
-               pFoundEntry->uCbx.pnGetUint32Attr ?
-                  pFoundEntry->uCbx.pnGetUint32Attr() :
-                  pFoundEntry->uData.lUnsigned32,
-               0 );
-            ABP_SetMsgResponse( psCommandMessage, ABP_UINT32_SIZEOF );
-            ABCC_SendRespMsg( psCommandMessage );
-            return;
-
-         case SERVICE_STR:
+            switch ( bCmd )
             {
-               UINT16 iStrLength;
-
-               if( pFoundEntry->uCbx.pnGetStrAttr )
+            case ABP_CMD_GET_ATTR:
+               if( ABCC_GetMsgCmdExt0( psCommandMessage ) == psEntry->uCmdExt.bAttr )
                {
-                  iStrLength = pFoundEntry->uCbx.pnGetStrAttr(
-                     (char*)ABCC_GetMsgDataPtr( psCommandMessage ),
-                     ABCC_MATH_MIN( ABCC_CFG_MAX_MSG_SIZE,
-                     pFoundEntry->uData.iAttrMaxDataSize ) );
+                  GetAttributeHandler( psCommandMessage, psEntry );
+                  return;
                }
-               else
+               break;
+            case ABP_CMD_SET_ATTR:
+               if( ABCC_GetMsgCmdExt0( psCommandMessage ) == psEntry->uCmdExt.bAttr )
                {
-                  const char* pStr = pFoundEntry->uData.pacString;
-                  iStrLength = ( UINT16 )strlen( pStr );
-                  ABCC_SetMsgString( psCommandMessage,
-                                     pStr,
-                                     iStrLength,
-                                     0 );
+                  SetAttributeHandler( psCommandMessage, psEntry );
+                  return;
                }
-
-               ABP_SetMsgResponse( psCommandMessage, iStrLength );
-               ABCC_SendRespMsg( psCommandMessage );
+               break;
+            case ABP_CMD_RESET:
+               psEntry->uCbx.pnResetObj( ABCC_GetMsgCmdExt1( psCommandMessage ) );
                return;
+            default:
+               break;
             }
-         }
-
-         ABCC_LOG_FATAL(
-            ABCC_EC_INTERNAL_ERROR,
-            pFoundEntry->eServiceTag,
-            "Missing attribute handler implementation\n" );
-      }
-   }
-   else
-   if( ( ABCC_GetMsgCmdBits( psCommandMessage ) == ABP_CMD_SET_ATTR ) &&
-       ( ABCC_GetMsgInstance( psCommandMessage ) == 1 ) )
-   {
-      const attr_lookup_type* pFoundEntry = NULL;
-
-      UINT8  bDestObj  = ABCC_GetMsgDestObj( psCommandMessage );
-      UINT8  bAttr     = ABCC_GetMsgCmdExt0( psCommandMessage );
-
-      for( size_t i = 0; i < sizeof( attribute_table ) / sizeof( attr_lookup_type ); i++ )
-      {
-         const attr_lookup_type*  pEntry = &attribute_table[i];
-         if( ( bDestObj == pEntry->bObject ) &&
-             ( bAttr    == pEntry->bAttribute ) &&
-             ( ABP_CMD_SET_ATTR == pEntry->bCommand ) )
-         {
-            ABCC_LOG_INFO( "Attribute handler found\n" );
-            pFoundEntry = pEntry;
-            break;
-         }
-      }
-
-      if (pFoundEntry)
-      {
-         switch( pFoundEntry->eServiceTag )
-         {
-         case SERVICE_INT8:
-         case SERVICE_UINT8:
-            UINT8 bValue = 0;
-            ABCC_GetMsgData8( psCommandMessage, (UINT8*)&bValue, 0 );
-            pFoundEntry->uCbx.pnSetUint8Attr( bValue );
-            ABP_SetMsgResponse( psCommandMessage, 0 );
-            ABCC_SendRespMsg( psCommandMessage );
-            return;
          }
       }
    }

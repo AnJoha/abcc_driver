@@ -25,6 +25,7 @@ enum ABCC_ATTR_SERVICE_TAG
     SERVICE_UINT32,
     SERVICE_INT32,
     SERVICE_STR,
+    SERVICE_RESET,
 };
 
 typedef UINT8 (*ABCC_UINT8_Get_AttrFuncType) (void);
@@ -43,10 +44,15 @@ typedef void (*ABCC_UINT32_Set_AttrFuncType)(UINT32);
 typedef void (*ABCC_INT32_Set_AttrFuncType) (INT32);
 typedef void (*ABCC_STR_Set_AttrFuncType)   (char* pPackedStrSrc, UINT16 iBuffSize);
 
+typedef void (*ABCC_Reset_ObjFuncType) (ABP_ResetType);
+
 typedef struct
 {
     UINT8 bObject;
-    UINT8 bAttribute;
+    UINT8 bInstance;
+    union{
+        UINT8 bAttr;
+    }uCmdExt;
     enum ABP_MsgCmdType bCommand;
     enum ABCC_ATTR_SERVICE_TAG eServiceTag;
     union
@@ -65,6 +71,7 @@ typedef struct
         ABCC_UINT32_Set_AttrFuncType pnSetUint32Attr;
         ABCC_INT32_Set_AttrFuncType  pnSetInt32Attr;
         ABCC_STR_Set_AttrFuncType    pnSetStrAttr;
+        ABCC_Reset_ObjFuncType       pnResetObj;
     }uCbx;
     union
     {
@@ -78,7 +85,7 @@ typedef struct
 
         UINT16 iAttrMaxDataSize;
     }uData;
-}attr_lookup_type;
+}Command_Handler_Lookup_Type;
 
 /*------------------------------------------------------------------------------
 ** Handle messages with the command bit set received from the ABCC.

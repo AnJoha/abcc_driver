@@ -82,7 +82,7 @@ set(abcc_driver_INCS
     ${ABCC_DRIVER_DIR}/inc/application_abcc_handler.h
     ${ABCC_DRIVER_DIR}/inc/application_data_instance_config.h
     ${ABCC_DRIVER_DIR}/inc/application_select_firmware.h
-	${ABCC_DRIVER_DIR}/inc/host_objects/abcc_host_attributes_lookup.h
+	${ABCC_DRIVER_DIR}/inc/host_objects/abcc_command_handler_lookup.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/anybus_file_system_interface_object.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/application_data_object.h
     ${ABCC_DRIVER_DIR}/inc/host_objects/application_object.h
